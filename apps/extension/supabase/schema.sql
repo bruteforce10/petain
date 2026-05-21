@@ -13,8 +13,28 @@ create table if not exists places (
   lat double precision,
   lng double precision,
   maps_url text,
+  price_level text,
+  phone text,
+  website text,
+  plus_code text,
+  hours jsonb,
+  service_options text[],
+  rating_breakdown int[],
+  is_closed boolean,
+  photo_count int,
   scraped_at timestamptz default now()
 );
+
+-- Migrate existing deployments: add deep-scrape columns if the table predates them.
+alter table places add column if not exists price_level text;
+alter table places add column if not exists phone text;
+alter table places add column if not exists website text;
+alter table places add column if not exists plus_code text;
+alter table places add column if not exists hours jsonb;
+alter table places add column if not exists service_options text[];
+alter table places add column if not exists rating_breakdown int[];
+alter table places add column if not exists is_closed boolean;
+alter table places add column if not exists photo_count int;
 
 -- Products scraped from Shopee / Tokopedia.
 create table if not exists products (
