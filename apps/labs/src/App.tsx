@@ -4,6 +4,7 @@ import type { ProductRow, PlaceRow } from '@terramap/types';
 import { fetchProducts, fetchPlaces } from '@terramap/supabase';
 import { ProductTable, EmptyState } from '@terramap/ui';
 import { PlaceTable } from '@/components/PlaceTable';
+import { AreaAnalysis } from '@/components/AreaAnalysis';
 import { supabase } from '../lib/supabase-browser';
 
 export default function App() {
@@ -142,6 +143,12 @@ function Viewer({ email }: { email: string }) {
               <EmptyState title="No Shopee products" hint="Scrape a Shopee search page." />
             )}
           </Section>
+
+          {places!.length > 0 && (
+            <Section title="Area analysis" count={places!.length}>
+              <AreaAnalysis rows={places!} />
+            </Section>
+          )}
 
           <Section title="Google Maps" count={places!.length}>
             {places!.length ? (

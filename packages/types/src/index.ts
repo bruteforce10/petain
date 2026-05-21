@@ -12,6 +12,16 @@ export interface Place {
   lat?: number | null;
   lng?: number | null;
   maps_url?: string | null;
+  // Deep fields scraped from the detail panel (best-effort, often null).
+  price_level?: string | null; // e.g. "Rp26.000–50.000"
+  phone?: string | null;
+  website?: string | null;
+  plus_code?: string | null;
+  hours?: Record<string, string> | null; // day -> "09:00–22:00"
+  service_options?: string[] | null; // dine-in / takeaway / delivery
+  rating_breakdown?: number[] | null; // [5★count, 4★, 3★, 2★, 1★]
+  is_closed?: boolean | null; // permanently/temporarily closed
+  photo_count?: number | null;
 }
 
 /** A product scraped from Shopee/Tokopedia (insert into `products`). */

@@ -1,5 +1,5 @@
 import type { Place } from '@/lib/types';
-import { autoScroll, waitForSelector } from '@/utils/scroll';
+import { autoScroll, sleep, waitForSelector } from '@/utils/scroll';
 
 /**
  * Scrape Google Maps search-result feed (the left-hand list panel).
@@ -69,4 +69,140 @@ export async function scrapeGoogleMaps(): Promise<Place[]> {
   });
 
   return places;
+}
+
+/* ------------------------------------------------------------------ *
+ * Detail-panel deep scrape.                                          *
+ * Clicks each result to read fields the list cards omit: phone,      *
+ * website, hours, price level, star breakdown, closed flag.          *
+ * Selectors are best-effort — null when Maps doesn't render a field. *
+ * ------------------------------------------------------------------ */
+
+const DETAIL_NAME = 'h1.DUwDvf';
+const BACK_BTN =
+  'button[aria-label="Kembali"], button[aria-label="Back"], button.hYBOP';
+
+const ariaText = (el: Element | null): string | null =>
+  el?.getAttribute('aria-label')?.trim() || null;
+
+/** Strip a leading "Label: " prefix (e.g. "Alamat: Jl ...", "Telepon: 0813..."). */
+const stripLabel = (s: string | null): string | null =>
+  s ? s.replace(/^[^:]{1,20}:\s*/, '').trim() || null : null;
+
+function parsePhone(panel: Element): string | null {
+  const btn = panel.querySelector('[data-item-id^="phone"]');
+  if (!btn) return null;
+  const id = btn.getAttribute('data-item-id') ?? '';
+  const m = id.match(/phone:tel:(.+)$/);
+  if (m) return m[1];
+  return stripLabel(ariaText(btn));
+}
+
+function parseHours(panel: Element): Record<string, string> | null {
+  // Hours table: <tr.y0skZc><td.ylH6lf>Day</td><td><li.G8aQO>HH.MM–HH.MM</li></td>
+  const rows = panel.querySelectorAll('tr.y0skZc');
+  const out: Record<string, string> = {};
+  rows.forEach((row) => {
+    const day = row.querySelector('td.ylH6lf')?.textContent?.trim();
+    const time = row.querySelector('li.G8aQO')?.textContent?.trim();
+    if (day && time) out[day] = time.replace(/\s+/g, ' ');
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+function parseRatingBreakdown(panel: Element): number[] | null {
+  // Histogram rows: aria-label like "5 stars, 120 reviews" / "5 bintang, 120 ulasan".
+  const bars = panel.querySelectorAll('[role="img"][aria-label*="bintang"], [role="img"][aria-label*="stars"]');
+  const counts: number[] = [];
+  bars.forEach((b) => {
+    const lbl = ariaText(b) ?? '';
+    // Only single-digit star rows (1..5), not aggregate "4,7 bintang".
+    const m = lbl.match(/^([1-5])\s*(bintang|stars)\D+([\d.,]+)/i);
+    if (m) counts[5 - parseInt(m[1], 10)] = parseInt(m[3].replace(/[.,]/g, ''), 10) || 0;
+  });
+  return counts.length === 5 ? counts : null;
+}
+
+function parseDetail(panel: Element, base: Place): Place {
+  const name = panel.querySelector(DETAIL_NAME)?.textContent?.trim() || base.name;
+  const category = panel.querySelector('button.DkEaL')?.textContent?.trim() || base.category || null;
+
+  const address =
+    stripLabel(ariaText(panel.querySelector('[data-item-id="address"]'))) || base.address || null;
+
+  const website =
+    (panel.querySelector('a[data-item-id="authority"]') as HTMLAnchorElement | null)?.href ||
+    stripLabel(ariaText(panel.querySelector('a[data-item-id="authority"]'))) ||
+    null;
+
+  const plus_code =
+    stripLabel(ariaText(panel.querySelector('[data-item-id="oloc"]'))) || null;
+
+  const ratingTxt = panel.querySelector('.MW4etd, div.fontDisplayLarge')?.textContent?.trim();
+  const rating = ratingTxt ? parseFloat(ratingTxt.replace(',', '.')) || base.rating || null : base.rating ?? null;
+
+  const text = (panel as HTMLElement).innerText || '';
+  const priceMatch = text.match(/Rp\s?[\d.]+(?:\s?[–-]\s?Rp?\s?[\d.]+)?|\$\$?\$?\$?/);
+  const price_level = priceMatch ? priceMatch[0].trim() : null;
+
+  const service_options = ['Makan di tempat', 'Bawa pulang', 'Pengiriman', 'Dine-in', 'Takeaway', 'Delivery']
+    .filter((s) => text.includes(s));
+
+  const is_closed = /Tutup permanen|Permanently closed|Tutup sementara|Temporarily closed/i.test(text);
+
+  return {
+    ...base,
+    name,
+    category,
+    address,
+    rating,
+    phone: parsePhone(panel),
+    website,
+    plus_code,
+    hours: parseHours(panel),
+    service_options: service_options.length ? service_options : null,
+    rating_breakdown: parseRatingBreakdown(panel),
+    is_closed,
+  };
+}
+
+/**
+ * Open each result card, scrape its detail panel, merge into the list `Place`.
+ * Throttled and capped to avoid rate-limiting. One failing card is skipped,
+ * not fatal. Returns places enriched in place (same order).
+ */
+export async function scrapeGoogleMapsDeep(
+  places: Place[],
+  { limit = 60, delay = 800 } = {},
+): Promise<Place[]> {
+  const feed = document.querySelector(FEED);
+  if (!feed) return places;
+
+  const enriched = [...places];
+  const n = Math.min(limit, enriched.length);
+
+  for (let i = 0; i < n; i++) {
+    try {
+      const cards = feed.querySelectorAll('div[role="article"], div.Nv2PK');
+      const card = cards[i];
+      const click = (card?.querySelector('a[href*="/maps/place"]') ?? card) as HTMLElement | null;
+      if (!click) continue;
+
+      click.click();
+      const h1 = await waitForSelector(DETAIL_NAME);
+      if (!h1) continue;
+      await sleep(delay);
+
+      const panel = (h1.closest('[role="main"]') ?? document.body) as Element;
+      enriched[i] = parseDetail(panel, enriched[i]);
+
+      const back = document.querySelector(BACK_BTN) as HTMLElement | null;
+      back?.click();
+      await sleep(delay / 2);
+    } catch {
+      // brittle DOM — skip this card, keep the list-pass data
+    }
+  }
+
+  return enriched;
 }

@@ -1,4 +1,4 @@
-import { scrapeGoogleMaps } from '@/lib/scrapers/gmaps';
+import { scrapeGoogleMaps, scrapeGoogleMapsDeep } from '@/lib/scrapers/gmaps';
 import type { StartScrape, ScrapeResult } from '@/lib/types';
 
 export default defineContentScript({
@@ -6,12 +6,16 @@ export default defineContentScript({
   async main() {
     chrome.runtime.onMessage.addListener((msg: StartScrape, _s, sendResponse) => {
       if (msg?.type !== 'START_SCRAPE') return;
-      scrapeGoogleMaps()
-        .then((places) => {
-          const result: ScrapeResult = { type: 'SCRAPE_RESULT', source: 'gmaps', places };
-          chrome.runtime.sendMessage(result, sendResponse);
-        })
-        .catch((e) => sendResponse({ type: 'SAVE_STATUS', ok: false, inserted: 0, error: String(e) }));
+      (async () => {
+        // 1) list pass: cheap, gets every visible result.
+        const list = await scrapeGoogleMaps();
+        // 2) deep pass: click each result for detail-panel fields.
+        const places = await scrapeGoogleMapsDeep(list);
+        const result: ScrapeResult = { type: 'SCRAPE_RESULT', source: 'gmaps', places };
+        chrome.runtime.sendMessage(result, sendResponse);
+      })().catch((e) =>
+        sendResponse({ type: 'SAVE_STATUS', ok: false, inserted: 0, error: String(e) }),
+      );
       return true;
     });
   },
