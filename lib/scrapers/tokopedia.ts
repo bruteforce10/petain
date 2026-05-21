@@ -66,27 +66,67 @@ export function parseTokopediaApi(body: string): Product[] {
   }
 }
 
-/** DOM fallback: scrape visible product cards on a search results page. */
+/** Product anchor URL: tokopedia.com/<shop-slug>/<product-slug>-<id>. */
+const PRODUCT_URL = /tokopedia\.com\/[\w.-]+\/[\w-]+-\d{6,}/;
+
+/** Derive a readable seller name from the shop slug in a product URL. */
+function sellerFromUrl(href: string): string | null {
+  try {
+    const slug = new URL(href).pathname.split('/').filter(Boolean)[0];
+    if (!slug) return null;
+    return slug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * DOM fallback: scrape visible product cards on a search results page.
+ *
+ * Tokopedia ships hashed (emotion/CSS-module) classnames with no stable
+ * data-testid on cards, so we anchor on the product URL pattern and read
+ * fields by text shape instead of fragile selectors.
+ */
 export function scrapeTokopediaDom(): Product[] {
-  const cards = document.querySelectorAll('[data-testid="divProductWrapper"], div.css-5wh65g');
+  const anchors = [...document.querySelectorAll('a[href]')].filter((a) =>
+    PRODUCT_URL.test((a as HTMLAnchorElement).href),
+  ) as HTMLAnchorElement[];
+
   const products: Product[] = [];
-  cards.forEach((card) => {
-    const link = card.querySelector('a[href]') as HTMLAnchorElement | null;
-    const name = card.querySelector('[data-testid="spnSRPProdName"]')?.textContent?.trim()
-      || card.querySelector('span')?.textContent?.trim() || '';
-    if (!name) return;
-    const priceTxt = card.textContent?.match(/Rp[\d.,]+/)?.[0] ?? '';
-    const soldTxt = card.textContent?.match(/[\d.,]+\+?\s*(rb|jt)?\s*terjual/i)?.[0] ?? '';
+  for (const anchor of anchors) {
+    const spans = [...anchor.querySelectorAll('span')]
+      .map((s) => s.textContent?.trim() ?? '')
+      .filter(Boolean);
+
+    // Name = longest span that isn't price / sold / discount / rating.
+    const name = spans
+      .filter(
+        (t) =>
+          !/^Rp/.test(t) &&
+          !/terjual/i.test(t) &&
+          !/^\d+%$/.test(t) &&
+          !/^[0-5](\.\d)?$/.test(t),
+      )
+      .reduce((longest, t) => (t.length > longest.length ? t : longest), '');
+    if (!name) continue;
+
+    const priceTxt = (anchor.textContent ?? '').match(/Rp[\d.]+/)?.[0] ?? '';
+    const soldTxt = spans.find((t) => /terjual/i.test(t)) ?? '';
+    const ratingTxt = spans.find((t) => /^[0-5]\.\d$/.test(t));
+
     products.push({
       source: 'tokopedia',
       name,
       price: parseIndoNumber(priceTxt.replace('Rp', '')),
-      rating: null,
+      rating: ratingTxt ? parseFloat(ratingTxt) : null,
       sold_count: parseIndoNumber(soldTxt),
-      seller: null,
-      product_url: link?.href ?? null,
-      image_url: (card.querySelector('img') as HTMLImageElement | null)?.src ?? null,
+      seller: sellerFromUrl(anchor.href),
+      product_url: anchor.href,
+      image_url: (anchor.querySelector('img') as HTMLImageElement | null)?.src ?? null,
     });
-  });
+  }
   return products;
 }

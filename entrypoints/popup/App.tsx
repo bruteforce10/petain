@@ -22,6 +22,9 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authErr, setAuthErr] = useState('');
+  const [authMsg, setAuthMsg] = useState('');
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [authBusy, setAuthBusy] = useState(false);
   const [source, setSource] = useState<Source | null>(null);
   const [tabId, setTabId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,11 +40,29 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function login(e: React.FormEvent) {
+  async function submitAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthErr('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setAuthErr(error.message);
+    setAuthMsg('');
+    setAuthBusy(true);
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          setAuthErr(error.message);
+        } else if (!data.session) {
+          // Email confirmation enabled: no session until user confirms.
+          setAuthMsg('Account created. Check your email to confirm, then log in.');
+          setMode('login');
+        }
+        // If session present, onAuthStateChange flips to logged-in view.
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setAuthErr(error.message);
+      }
+    } finally {
+      setAuthBusy(false);
+    }
   }
 
   async function scrape() {
@@ -62,7 +83,7 @@ export default function App() {
     return (
       <div className="p-4 space-y-3">
         <h1 className="text-lg font-bold">TerraMap</h1>
-        <form onSubmit={login} className="space-y-2">
+        <form onSubmit={submitAuth} className="space-y-2">
           <input
             className="w-full border rounded px-2 py-1 text-sm"
             type="email" placeholder="email" value={email}
@@ -71,13 +92,24 @@ export default function App() {
           <input
             className="w-full border rounded px-2 py-1 text-sm"
             type="password" placeholder="password" value={password}
+            minLength={6}
             onChange={(e) => setPassword(e.target.value)} required
           />
-          <button className="w-full bg-blue-600 text-white rounded py-1 text-sm" type="submit">
-            Log in
+          <button
+            className="w-full bg-blue-600 disabled:bg-gray-400 text-white rounded py-1 text-sm"
+            type="submit" disabled={authBusy}
+          >
+            {authBusy ? 'Working…' : mode === 'signup' ? 'Sign up' : 'Log in'}
           </button>
           {authErr && <p className="text-red-600 text-xs">{authErr}</p>}
+          {authMsg && <p className="text-green-600 text-xs">{authMsg}</p>}
         </form>
+        <button
+          className="text-xs text-blue-600 underline"
+          onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setAuthErr(''); setAuthMsg(''); }}
+        >
+          {mode === 'signup' ? 'Already have an account? Log in' : "No account? Sign up"}
+        </button>
       </div>
     );
   }
