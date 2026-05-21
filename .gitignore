@@ -1,6 +1,9 @@
 node_modules
 .output
 .wxt
+.next
+.turbo
+dist
 *.zip
 .env
 .env.local

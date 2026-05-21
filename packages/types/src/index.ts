@@ -1,4 +1,4 @@
-// Shared data shapes used across scrapers, content scripts, and background.
+// Shared data shapes used across scrapers, content scripts, background, and web.
 
 export type Source = 'gmaps' | 'shopee' | 'tokopedia';
 
@@ -25,6 +25,19 @@ export interface Product {
   product_url?: string | null;
   image_url?: string | null;
 }
+
+/** Columns added by the DB on insert (see supabase/schema.sql). */
+export interface DbColumns {
+  id: number;
+  user_id: string;
+  scraped_at: string;
+}
+
+/** A `products` row as returned by `select(*)`. */
+export type ProductRow = Product & DbColumns;
+
+/** A `places` row as returned by `select(*)`. */
+export type PlaceRow = Place & DbColumns;
 
 /** Messages: content script -> background. */
 export interface ScrapeResult {
