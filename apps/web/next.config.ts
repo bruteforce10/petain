@@ -1,11 +1,14 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Workspace packages ship TypeScript source; let Next compile them.
-  transpilePackages: ['@terramap/types', '@terramap/supabase', '@terramap/ui'],
+  output: "standalone",
   images: {
-    // Tokopedia/Shopee product image hosts are remote; allow any https host.
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "cdn.prod.website-files.com",
+      },
+    ],
   },
 };
 

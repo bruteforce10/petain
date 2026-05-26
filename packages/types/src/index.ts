@@ -22,6 +22,21 @@ export interface Place {
   rating_breakdown?: number[] | null; // [5★count, 4★, 3★, 2★, 1★]
   is_closed?: boolean | null; // permanently/temporarily closed
   photo_count?: number | null;
+  // Area-scrape metadata. Populated when scraped via radius-area flow;
+  // null for legacy keyword-only scrapes from apps/extension.
+  scrape_session_id?: string | null;
+  area_center_lat?: number | null;
+  area_center_lng?: number | null;
+  area_radius_m?: number | null;
+  keyword?: string | null;
+}
+
+/** Parameters to start one area scrape session. */
+export interface AreaScrapeParams {
+  keyword: string;
+  lat: number;
+  lng: number;
+  radiusM: number;
 }
 
 /** A product scraped from Shopee/Tokopedia (insert into `products`). */
@@ -68,4 +83,25 @@ export interface SaveStatus {
   ok: boolean;
   inserted: number;
   error?: string;
+  sessionId?: string;
+}
+
+/** Popup -> background: start a radius-area scrape session. */
+export interface StartAreaScrape {
+  type: 'START_AREA_SCRAPE';
+  params: AreaScrapeParams;
+}
+
+/** Background -> content (in the spawned gmaps tab): run the scrape kernel. */
+export interface RunAreaScrape {
+  type: 'RUN_AREA_SCRAPE';
+  params: AreaScrapeParams;
+  sessionId: string;
+}
+
+/** Content -> background: scraped rows of a session. */
+export interface AreaScrapeResult {
+  type: 'AREA_SCRAPE_RESULT';
+  sessionId: string;
+  places: Place[];
 }

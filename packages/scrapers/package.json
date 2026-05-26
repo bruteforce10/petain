@@ -1,0 +1,24 @@
+{
+  "name": "@terramap/scrapers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scroll": "./src/scroll.ts",
+    "./gmaps": "./src/gmaps.ts",
+    "./area": "./src/area.ts"
+  },
+  "scripts": {
+    "compile": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@terramap/area": "workspace:*",
+    "@terramap/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  }
+}

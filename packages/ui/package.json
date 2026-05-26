@@ -12,12 +12,15 @@
     "compile": "tsc --noEmit"
   },
   "dependencies": {
-    "@terramap/types": "workspace:*"
+    "@terramap/types": "workspace:*",
+    "papaparse": "^5.4.1",
+    "xlsx": "^0.18.5"
   },
   "peerDependencies": {
     "react": "^18.3.1"
   },
   "devDependencies": {
+    "@types/papaparse": "^5.3.14",
     "@types/react": "^18.3.3",
     "react": "^18.3.1",
     "typescript": "^5.5.3"

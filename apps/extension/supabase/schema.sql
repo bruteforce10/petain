@@ -22,6 +22,11 @@ create table if not exists places (
   rating_breakdown int[],
   is_closed boolean,
   photo_count int,
+  scrape_session_id uuid,
+  area_center_lat double precision,
+  area_center_lng double precision,
+  area_radius_m int,
+  keyword text,
   scraped_at timestamptz default now()
 );
 
@@ -35,6 +40,15 @@ alter table places add column if not exists service_options text[];
 alter table places add column if not exists rating_breakdown int[];
 alter table places add column if not exists is_closed boolean;
 alter table places add column if not exists photo_count int;
+
+-- Area-scrape metadata: groups rows from one radius-scrape session.
+alter table places add column if not exists scrape_session_id uuid;
+alter table places add column if not exists area_center_lat double precision;
+alter table places add column if not exists area_center_lng double precision;
+alter table places add column if not exists area_radius_m int;
+alter table places add column if not exists keyword text;
+
+create index if not exists places_session_idx on places (user_id, scrape_session_id);
 
 -- Products scraped from Shopee / Tokopedia.
 create table if not exists products (
