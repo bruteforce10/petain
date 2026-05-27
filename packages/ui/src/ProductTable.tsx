@@ -25,9 +25,9 @@ export interface ProductTableProps {
 
 export function ProductTable({ rows }: ProductTableProps) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-left text-gray-600">
+        <thead className="bg-muted text-left text-muted-foreground">
           <tr>
             <th className="px-3 py-2 font-medium">Product</th>
             <th className="px-3 py-2 font-medium">Source</th>
@@ -38,9 +38,9 @@ export function ProductTable({ rows }: ProductTableProps) {
             <th className="px-3 py-2 font-medium">Scraped</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border">
           {rows.map((p) => (
-            <tr key={p.id} className="hover:bg-gray-50">
+            <tr key={p.id} className="hover:bg-muted">
               <td className="px-3 py-2">
                 <div className="flex items-center gap-2">
                   {p.image_url && (
@@ -57,7 +57,7 @@ export function ProductTable({ rows }: ProductTableProps) {
                       href={p.product_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="line-clamp-2 max-w-xs text-brand hover:underline"
+                      className="line-clamp-2 max-w-xs text-primary hover:underline"
                     >
                       {p.name}
                     </a>
@@ -66,12 +66,12 @@ export function ProductTable({ rows }: ProductTableProps) {
                   )}
                 </div>
               </td>
-              <td className="px-3 py-2 capitalize text-gray-600">{p.source}</td>
+              <td className="px-3 py-2 capitalize text-muted-foreground">{p.source}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtPrice(p.price)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{p.rating ?? '—'}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtNum(p.sold_count)}</td>
-              <td className="px-3 py-2 text-gray-600">{p.seller ?? '—'}</td>
-              <td className="px-3 py-2 whitespace-nowrap text-gray-500">{fmtDate(p.scraped_at)}</td>
+              <td className="px-3 py-2 text-muted-foreground">{p.seller ?? '—'}</td>
+              <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{fmtDate(p.scraped_at)}</td>
             </tr>
           ))}
         </tbody>

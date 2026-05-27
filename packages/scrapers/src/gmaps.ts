@@ -51,6 +51,12 @@ function parseCard(card: Element): Place | null {
 }
 
 export async function scrapeGoogleMaps(): Promise<Place[]> {
+  if (!location.pathname.includes('/maps/search/')) {
+    throw new Error(
+      `Maps landed on non-search page: ${location.pathname}. ` +
+        `Lower the zoom or broaden the keyword so Maps stays on /maps/search/.`,
+    );
+  }
   const feed = (await waitForSelector(FEED)) as HTMLElement | null;
   if (!feed) return [];
 

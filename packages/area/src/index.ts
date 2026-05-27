@@ -24,15 +24,14 @@ export function haversineMeters(a: LatLng, b: LatLng): number {
 
 /**
  * Pick a Google Maps zoom that roughly frames a circle of the given radius.
- * Heuristic: at zoom Z, one screen ≈ 256 * 2^(20-Z) meters across (at equator).
- * Radius 250m → 17, 1km → 16, 3km → 15, 10km → 13. Clamped to [12, 18].
+ * Clamped to [12, 16] — zooms above 16 cause Maps to redirect
+ * /maps/search/ to /maps/place/ when the keyword matches one POI tightly.
  */
 export function pickZoomForRadius(radiusM: number): number {
-  if (radiusM <= 0) return 17;
-  // Half the visible span ≈ radius; pick zoom so span ≈ 4 * radius.
-  const targetSpan = 4 * radiusM;
+  const r = Math.max(100, radiusM);
+  const targetSpan = 4 * r;
   const z = Math.round(20 - Math.log2(targetSpan / 256));
-  return Math.max(12, Math.min(18, z));
+  return Math.max(12, Math.min(16, z));
 }
 
 export interface BuildUrlParams extends LatLng {

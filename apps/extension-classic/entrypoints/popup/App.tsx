@@ -65,13 +65,20 @@ export default function App() {
         type: 'START_AREA_SCRAPE',
         params: { keyword: keyword.trim(), lat, lng, radiusM },
       };
-      const res = (await chrome.runtime.sendMessage(msg)) as SaveStatus;
+      console.log('[terramap/popup] sending START_AREA_SCRAPE', msg);
+      const res = (await chrome.runtime.sendMessage(msg)) as SaveStatus | undefined;
+      console.log('[terramap/popup] response from background:', res, 'lastError:', chrome.runtime.lastError);
+      if (!res) {
+        setStatus('Error: no response from background (check service worker DevTools).');
+        return;
+      }
       if (res.ok) {
         setStatus(`✓ Saved ${res.inserted} POI. Session ${res.sessionId?.slice(0, 8)}…`);
       } else {
         setStatus(`Error: ${res.error}`);
       }
     } catch (e: any) {
+      console.log('[terramap/popup] scrape threw:', e);
       setStatus(`Error: ${e?.message ?? e}`);
     } finally {
       setBusy(false);
@@ -157,11 +164,12 @@ export default function App() {
           type="range"
           min={250}
           max={5000}
-          step={250}
+          step={50}
           value={radiusM}
           onChange={(e) => setRadiusM(Number(e.target.value))}
           className="w-full"
         />
+        <span className="block text-[10px] text-gray-400">min 250m</span>
       </label>
 
       <button

@@ -9,19 +9,26 @@ import type {
 
 /**
  * Background flow:
- *   popup → START_AREA_SCRAPE { keyword, lat, lng, radiusM }
- *   → background opens a new tab on the gmaps search URL
- *   → waits until the area-content script finishes loading
- *   → sends RUN_AREA_SCRAPE with sessionId + params
- *   → content returns AREA_SCRAPE_RESULT with rows
- *   → background inserts rows into Supabase with user_id
- *   → background returns SaveStatus to popup
+ *   popup → START_AREA_SCRAPE → background opens Maps tab → RUN_AREA_SCRAPE → content
+ *   Content pushes AREA_SCRAPE_RESULT back via runtime.sendMessage (not sendResponse) —
+ *   the open-channel pattern is unreliable for multi-minute scrapes in MV3 (port closes,
+ *   SW idles out). A chrome.alarm heartbeat keeps the SW alive during the wait.
  */
 export default defineBackground(() => {
+  console.log('[terramap/bg] background script booted');
+
+  // Alarm listener is a no-op; its only job is to wake the SW periodically so it
+  // doesn't get terminated mid-scrape.
+  chrome.alarms.onAlarm.addListener(() => {});
+
   chrome.runtime.onMessage.addListener((msg: StartAreaScrape, _sender, sendResponse) => {
     if (msg?.type !== 'START_AREA_SCRAPE') return;
-    handleStart(msg).then(sendResponse);
-    return true; // keep channel open for async sendResponse
+    console.log('[terramap/bg] START_AREA_SCRAPE received');
+    handleStart(msg).then((r) => {
+      console.log('[terramap/bg] handleStart resolved:', r);
+      sendResponse(r);
+    });
+    return true;
   });
 });
 
@@ -34,41 +41,64 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   const sessionId = nextSessionId();
   const { keyword, lat, lng, radiusM } = msg.params;
   const url = buildGmapsSearchUrl({ keyword, lat, lng, zoom: pickZoomForRadius(radiusM) });
+  console.log('[terramap/bg] gmaps URL:', url, 'sessionId:', sessionId);
+
+  const alarmName = `scrape-${sessionId}`;
+  await chrome.alarms.create(alarmName, { periodInMinutes: 0.4 });
 
   let tab: chrome.tabs.Tab;
   try {
-    tab = await chrome.tabs.create({ url, active: false });
+    tab = await chrome.tabs.create({ url, active: true });
+    console.log('[terramap/bg] tab created, id:', tab.id);
   } catch (e: any) {
+    await chrome.alarms.clear(alarmName);
     return { type: 'SAVE_STATUS', ok: false, inserted: 0, error: `tab open: ${e?.message ?? e}` };
   }
   const tabId = tab.id!;
 
   try {
     await waitForTabComplete(tabId, 20_000);
+    console.log('[terramap/bg] tab', tabId, 'reported complete');
 
     const runMsg: RunAreaScrape = { type: 'RUN_AREA_SCRAPE', params: msg.params, sessionId };
-    // Send to content script. Retry briefly: WXT may inject the content
-    // script a tick after the tab reports "complete".
-    const result = (await sendWithRetry(tabId, runMsg, 5, 800)) as AreaScrapeResult | undefined;
 
-    if (!result || result.type !== 'AREA_SCRAPE_RESULT') {
-      return {
-        type: 'SAVE_STATUS',
-        ok: false,
-        inserted: 0,
-        error: 'Content script returned no result',
-        sessionId,
-      };
+    // Register push listener BEFORE sending the run message to avoid race.
+    const resultPromise = waitForResultPush(sessionId, 180_000);
+
+    try {
+      await sendWithRetry(tabId, runMsg, 5, 800);
+    } catch (e: any) {
+      console.log('[terramap/bg] sendMessage to content failed:', e);
     }
+    console.log('[terramap/bg] RUN_AREA_SCRAPE dispatched, waiting for push…');
+
+    const result = await resultPromise;
+    console.log('[terramap/bg] received push:', {
+      placeCount: result.places.length,
+      error: (result as any).error,
+    });
 
     const rows = result.places.map((p) => ({ ...p, user_id: userId }));
     if (!rows.length) {
-      return { type: 'SAVE_STATUS', ok: true, inserted: 0, sessionId };
+      const err = (result as any).error;
+      return {
+        type: 'SAVE_STATUS',
+        ok: !err,
+        inserted: 0,
+        error: err,
+        sessionId,
+      };
     }
+    console.log('[terramap/bg] inserting', rows.length, 'rows. sample:', rows[0]);
     const { error } = await supabase.from('places').insert(rows);
-    if (error) throw error;
+    if (error) {
+      console.log('[terramap/bg] supabase insert error:', error);
+      throw error;
+    }
+    console.log('[terramap/bg] insert OK, count:', rows.length);
     return { type: 'SAVE_STATUS', ok: true, inserted: rows.length, sessionId };
   } catch (e: any) {
+    console.log('[terramap/bg] handleStart caught:', e);
     return {
       type: 'SAVE_STATUS',
       ok: false,
@@ -77,9 +107,29 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       sessionId,
     };
   } finally {
-    // Leave tab open so the user can inspect results; comment out close.
-    // chrome.tabs.remove(tabId).catch(() => {});
+    await chrome.alarms.clear(alarmName);
   }
+}
+
+/** Wait for the content script to push AREA_SCRAPE_RESULT for our sessionId. */
+function waitForResultPush(
+  sessionId: string,
+  timeoutMs: number,
+): Promise<AreaScrapeResult & { error?: string }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      chrome.runtime.onMessage.removeListener(handler);
+      reject(new Error(`Timeout waiting for AREA_SCRAPE_RESULT (${timeoutMs}ms)`));
+    }, timeoutMs);
+    const handler = (incoming: any) => {
+      if (incoming?.type === 'AREA_SCRAPE_RESULT' && incoming.sessionId === sessionId) {
+        clearTimeout(timer);
+        chrome.runtime.onMessage.removeListener(handler);
+        resolve(incoming);
+      }
+    };
+    chrome.runtime.onMessage.addListener(handler);
+  });
 }
 
 function waitForTabComplete(tabId: number, timeoutMs: number): Promise<void> {
