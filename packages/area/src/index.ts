@@ -24,14 +24,14 @@ export function haversineMeters(a: LatLng, b: LatLng): number {
 
 /**
  * Pick a Google Maps zoom that roughly frames a circle of the given radius.
- * Clamped to [12, 16] — zooms above 16 cause Maps to redirect
- * /maps/search/ to /maps/place/ when the keyword matches one POI tightly.
+ * Clamped to [12, 14] — zooms ≥15 cause Maps to redirect /maps/search/ to
+ * /maps/place/ when the keyword matches one POI close to the center.
  */
 export function pickZoomForRadius(radiusM: number): number {
   const r = Math.max(100, radiusM);
   const targetSpan = 4 * r;
   const z = Math.round(20 - Math.log2(targetSpan / 256));
-  return Math.max(12, Math.min(16, z));
+  return Math.max(12, Math.min(14, z));
 }
 
 export interface BuildUrlParams extends LatLng {
@@ -39,16 +39,20 @@ export interface BuildUrlParams extends LatLng {
   zoom?: number;
 }
 
-/** Build a Google Maps search URL centered on lat/lng for a keyword. */
+/**
+ * Build a Google Maps URL centered on lat/lng — NO keyword in URL.
+ * URL-based searches (/maps/search/<q>/) redirect to /maps/place/ when the
+ * keyword matches one strong POI. Instead we navigate to a map-only URL and
+ * let the content script type the keyword into the search box (SPA submit,
+ * stays on results page).
+ */
 export function buildGmapsSearchUrl({
-  keyword,
   lat,
   lng,
   zoom,
 }: BuildUrlParams): string {
-  const q = encodeURIComponent(keyword.trim());
-  const z = zoom ?? 15;
-  return `https://www.google.com/maps/search/${q}/@${lat},${lng},${z}z`;
+  const z = zoom ?? 14;
+  return `https://www.google.com/maps/@${lat},${lng},${z}z`;
 }
 
 /** Crypto-safe uuid v4 for grouping a scrape session's rows. */

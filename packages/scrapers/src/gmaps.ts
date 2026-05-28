@@ -8,6 +8,47 @@ import { autoScroll, sleep, waitForSelector } from './scroll';
  */
 
 const FEED = 'div[role="feed"]';
+// Omnibox: name="q" + role="combobox" excludes the two ZBTq6e directions inputs.
+const SEARCH_INPUT = 'input[name="q"][role="combobox"]';
+
+/**
+ * Type a keyword into the Maps search box and submit. Used instead of
+ * loading a /maps/search/<q>/ URL directly — URL-based searches redirect
+ * to /maps/place/ when the query matches one POI tightly. SPA submits don't.
+ *
+ * Submit via Enter, NOT by clicking the omnibox search button: clicking the
+ * button accepts the highlighted autocomplete suggestion, which for most
+ * keywords is one specific place → Maps navigates to /maps/place/, triggers a
+ * full reload, and the content script is torn down mid-scrape. Enter runs the
+ * plain text query → /maps/search/ feed via SPA push (no reload).
+ */
+export async function searchOnMaps(keyword: string): Promise<void> {
+  const input = (await waitForSelector(SEARCH_INPUT, 10_000)) as HTMLInputElement | null;
+  if (!input) throw new Error(`Search input ${SEARCH_INPUT} not found on Maps page`);
+
+  // React inputs ignore .value=; use the native setter so the framework sees the change.
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  setter?.call(input, keyword);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+  await sleep(600);
+
+  // keyCode/which 13 required — Maps' handler reads the legacy keyCode, not `key`.
+  for (const t of ['keydown', 'keypress', 'keyup']) {
+    input.dispatchEvent(
+      new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }),
+    );
+  }
+
+  // Wait for results feed to appear (Maps swaps panels via SPA, no full reload).
+  const feed = await waitForSelector(FEED, 15_000);
+  if (!feed) {
+    throw new Error(
+      `Results feed never appeared after searching "${keyword}". ` +
+        `Path: ${location.pathname}. Maps may have redirected to a place page.`,
+    );
+  }
+}
 
 function extractLatLng(href: string | null): { lat: number | null; lng: number | null } {
   if (!href) return { lat: null, lng: null };
@@ -16,6 +57,14 @@ function extractLatLng(href: string | null): { lat: number | null; lng: number |
   if (at) return { lat: parseFloat(at[1]), lng: parseFloat(at[2]) };
   const bang = href.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
   if (bang) return { lat: parseFloat(bang[1]), lng: parseFloat(bang[2]) };
+  return { lat: null, lng: null };
+}
+
+// Last-resort: scan a card's full markup for !3d/!4d coords. Some list-card
+// hrefs no longer include `@lat,lng` but a nested data-* still carries them.
+function extractLatLngFromHtml(html: string): { lat: number | null; lng: number | null } {
+  const m = html.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
   return { lat: null, lng: null };
 }
 
@@ -31,17 +80,33 @@ function parseCard(card: Element): Place | null {
   const ratingTxt = card.querySelector('.MW4etd')?.textContent?.trim();
   const reviewTxt = card.querySelector('.UY7F9')?.textContent?.replace(/[(),.]/g, '').trim();
 
-  // Category + address live in two stacked .W4Efsd rows; grab text fragments.
+  // Maps wraps the rating in a `.W4Efsd` AND nests info rows inside another
+  // `.W4Efsd` parent. Keep only leaf rows: no `.MW4etd` child (rating wrapper)
+  // and no `.W4Efsd` descendant (parent wrapper). What remains is the
+  // "category · · address" row, descriptor row, and hours row.
   const meta = Array.from(card.querySelectorAll('.W4Efsd'))
+    .filter((e) => !e.querySelector('.MW4etd') && !e.querySelector('.W4Efsd'))
     .map((e) => e.textContent?.trim() || '')
     .filter(Boolean);
 
-  const { lat, lng } = extractLatLng(link?.getAttribute('href') ?? null);
+  // First leaf row: "Category · <a11y noise> · Address". Split on `·` and
+  // pick the address-looking segment (digits + letters), category = first.
+  const firstParts = (meta[0] ?? '').split('·').map((s) => s.trim()).filter(Boolean);
+  const category = firstParts[0] || null;
+  const address =
+    firstParts.find((p, i) => i > 0 && /\d/.test(p) && /[A-Za-z]/.test(p)) || null;
+
+  let { lat, lng } = extractLatLng(link?.getAttribute('href') ?? null);
+  if (lat == null || lng == null) {
+    const fallback = extractLatLngFromHtml(card.outerHTML);
+    lat = lat ?? fallback.lat;
+    lng = lng ?? fallback.lng;
+  }
 
   return {
     name,
-    category: meta[0]?.split('·')[0]?.trim() || null,
-    address: meta.find((m) => /\d/.test(m))?.replace(/·/g, '').trim() || null,
+    category,
+    address,
     rating: ratingTxt ? parseFloat(ratingTxt.replace(',', '.')) : null,
     review_count: reviewTxt ? parseInt(reviewTxt, 10) || null : null,
     lat,
@@ -51,12 +116,6 @@ function parseCard(card: Element): Place | null {
 }
 
 export async function scrapeGoogleMaps(): Promise<Place[]> {
-  if (!location.pathname.includes('/maps/search/')) {
-    throw new Error(
-      `Maps landed on non-search page: ${location.pathname}. ` +
-        `Lower the zoom or broaden the keyword so Maps stays on /maps/search/.`,
-    );
-  }
   const feed = (await waitForSelector(FEED)) as HTMLElement | null;
   if (!feed) return [];
 
@@ -156,12 +215,27 @@ function parseDetail(panel: Element, base: Place): Place {
 
   const is_closed = /Tutup permanen|Permanently closed|Tutup sementara|Temporarily closed/i.test(text);
 
+  // When the detail panel opens, Maps rewrites the URL to /maps/place/.../@LAT,LNG,17z/data=...
+  // This is the canonical coordinate source — more reliable than the list-card href, which
+  // recently dropped `@lat,lng` in many regions. Fall back to base.lat/lng (list pass) if
+  // the URL hasn't updated yet, then to !3d/!4d scan over the panel markup.
+  const urlMatch = location.pathname.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  let lat: number | null = urlMatch ? parseFloat(urlMatch[1]) : base.lat ?? null;
+  let lng: number | null = urlMatch ? parseFloat(urlMatch[2]) : base.lng ?? null;
+  if (lat == null || lng == null) {
+    const fallback = extractLatLngFromHtml((panel as HTMLElement).outerHTML);
+    lat = lat ?? fallback.lat;
+    lng = lng ?? fallback.lng;
+  }
+
   return {
     ...base,
     name,
     category,
     address,
     rating,
+    lat,
+    lng,
     phone: parsePhone(panel),
     website,
     plus_code,

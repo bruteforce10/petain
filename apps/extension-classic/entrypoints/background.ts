@@ -14,6 +14,8 @@ import type {
  *   the open-channel pattern is unreliable for multi-minute scrapes in MV3 (port closes,
  *   SW idles out). A chrome.alarm heartbeat keeps the SW alive during the wait.
  */
+const GMAPS_URL_RE = /^https?:\/\/(www\.)?google\.[^/]+\/maps(\/|$|\?)|^https?:\/\/maps\.google\.[^/]+\//;
+
 export default defineBackground(() => {
   console.log('[terramap/bg] background script booted');
 
@@ -48,8 +50,17 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
 
   let tab: chrome.tabs.Tab;
   try {
-    tab = await chrome.tabs.create({ url, active: true });
-    console.log('[terramap/bg] tab created, id:', tab.id);
+    const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (active?.id && active.url && GMAPS_URL_RE.test(active.url)) {
+      tab = await chrome.tabs.update(active.id, { url, active: true });
+      if (active.windowId !== undefined) {
+        await chrome.windows.update(active.windowId, { focused: true });
+      }
+      console.log('[terramap/bg] reused existing gmaps tab, id:', tab.id);
+    } else {
+      tab = await chrome.tabs.create({ url, active: true });
+      console.log('[terramap/bg] tab created, id:', tab.id);
+    }
   } catch (e: any) {
     await chrome.alarms.clear(alarmName);
     return { type: 'SAVE_STATUS', ok: false, inserted: 0, error: `tab open: ${e?.message ?? e}` };
@@ -83,9 +94,11 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       const err = (result as any).error;
       return {
         type: 'SAVE_STATUS',
-        ok: !err,
+        ok: false,
         inserted: 0,
-        error: err,
+        error:
+          err ??
+          'Scrape returned 0 places (selectors stale, or none inside radius). Check Maps tab console.',
         sessionId,
       };
     }

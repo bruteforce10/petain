@@ -1,0 +1,46 @@
+Jawab pertanyaan dulu, lalu tulis plan.
+
+Pertanyaan
+
+Q1: Scrape butuh struktur div Google Maps?
+Ya, full DOM-dependent. Selectors di packages/scrapers/src/gmaps.ts:
+- Feed list: div[role="feed"]
+- Card: div[role="article"], div.Nv2PK
+- Card name: .qBF1Pd | rating .MW4etd | reviews .UY7F9 | meta .W4Efsd
+- Detail panel: h1.DUwDvf, button.DkEaL, [data-item-id^="phone"], tr.y0skZc, dll
+- Search input: input#searchboxinput, button#searchbox-searchbutton
+- Back: button[aria-label="Kembali"|"Back"], button.hYBOP
+
+Google ganti class hash → scrape diam-diam return 0.
+
+Q2: Logic flow scrape + file:
+popup/App.tsx        scrape() kirim chrome.runtime.sendMessage START_AREA_SCRAPE
+  ↓
+background.ts        handleStart: auth → buildGmapsSearchUrl → tabs.create →
+                     waitForTabComplete(20s) → sendMessage RUN_AREA_SCRAPE →
+                     waitForResultPush(180s) → supabase.from('places').insert
+  ↓
+gmaps-area.content.ts onMessage RUN_AREA_SCRAPE → scrapeAreaOnPage → push AREA_SCRAPE_RESULT
+  ↓
+packages/scrapers/src/area.ts   searchOnMaps → scrapeGoogleMaps (list) →
+                                scrapeGoogleMapsDeep (klik tiap card) → filterWithinRadius
+  ↓
+packages/area/src/index.ts      pickZoomForRadius, buildGmapsSearchUrl, haversine, filter
+  ↓
+packages/types/src/index.ts     StartAreaScrape, RunAreaScrape, AreaScrapeResult, Place
+
+File chain: popup/App.tsx → background.ts → gmaps-area.content.ts → packages/scrapers/src/{area,gmaps,scroll}.ts → packages/area/src/index.ts → Supabase places.
+
+Masalah
+
+M1: Scrape selalu g save, berhenti.
+Hipotesis utama (urut likeliness):
+1. lat/lng null → filterWithinRadius drop semua. parseCard extract lat/lng dari a[href*="/maps/place"] href via regex @lat,lng / !3d!4d. Kalau Google ubah href shape → semua row lat/lng null → filter pass typeof === 'number' gagal → rows.length === 0 → bg return ok: !err, inserted: 0 (tanpa error msg, jadi popup show "✓ Saved 0 POI"). parseDetail ga touch lat/lng, jadi list-pass satu-satunya source.
+2. Selector list .qBF1Pd stale. Google rotate class hash. parseCard return null → 0 places.
+3. searchOnMaps throw "Search input not found" / "Results feed never appeared" → content catch → push places: [] w/ error → bg report error tapi user blg "g save apapun" tanpa msg → kemungkinan kecil.
+4. Auth user null. Tab opens tapi supabase.auth.getUser() di background SW context bisa beda dari popup. Cek log [terramap/bg] handleStart resolved.
+
+M2: Slider min 250 / step 50.
+pickZoomForRadius clamp [12, 14]. Hitungan: radius 100m → zoom 18 → clamp 14. Radius 5000m → zoom 14 → clamp 14. All radius → same URL, same zoom. Radius cuma efek di post-filter haversine. Slider kecil ga ngubah scrape, malah filter lebih ketat → 0 result lebih sering. Intuisi user kebalik.
+
+Sekarang tulis plan file.

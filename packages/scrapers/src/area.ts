@@ -1,6 +1,6 @@
 import type { AreaScrapeParams, Place } from '@terramap/types';
 import { filterWithinRadius } from '@terramap/area';
-import { scrapeGoogleMaps, scrapeGoogleMapsDeep } from './gmaps';
+import { scrapeGoogleMaps, scrapeGoogleMapsDeep, searchOnMaps } from './gmaps';
 
 /**
  * Scrape kernel for an area-bounded search.
@@ -24,13 +24,29 @@ export async function scrapeAreaOnPage(
 ): Promise<Place[]> {
   const { keyword, lat, lng, radiusM, sessionId, deepLimit = 60 } = params;
 
+  await searchOnMaps(keyword);
   const list = await scrapeGoogleMaps();
-  const deep = await scrapeGoogleMapsDeep(list, { limit: deepLimit });
+  console.log('[terramap/scrape] list pass:', list.length, 'sample:', list[0]);
 
+  // Filter by radius BEFORE the deep pass. A generic keyword fills the feed
+  // with 100+ cards but only a handful sit inside a small radius; deep-scraping
+  // all 60 (clicking each card) blows past the background's 180s push timeout.
+  // The list pass already extracts lat/lng, so cap the deep pass to the POIs
+  // actually inside the circle.
   const center = { lat, lng };
-  const inside = filterWithinRadius(deep, center, radiusM);
+  const inside = filterWithinRadius(list, center, radiusM);
+  console.log('[terramap/scrape] inside radius:', inside.length, '/', list.length);
 
-  return inside.map((p) => ({
+  const deep = await scrapeGoogleMapsDeep(inside, { limit: deepLimit });
+  console.log(
+    '[terramap/scrape] deep pass:',
+    deep.length,
+    'sample lat/lng:',
+    deep[0]?.lat,
+    deep[0]?.lng,
+  );
+
+  return deep.map((p) => ({
     ...p,
     scrape_session_id: sessionId,
     area_center_lat: lat,
