@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import type { PlaceRow } from '@terramap/types';
+import type { PlaceRow } from '@petain/types';
 
 export type ExportFormat = 'csv' | 'xlsx';
 
@@ -62,7 +62,7 @@ function triggerDownload(blob: Blob, filename: string): void {
 
 /**
  * Build a CSV/XLSX from PlaceRows and trigger a browser download.
- * Filename defaults to `terramap-<session>-<timestamp>.<ext>` when not given.
+ * Filename defaults to `petain-<session>-<timestamp>.<ext>` when not given.
  */
 export function exportPlaces(
   rows: PlaceRow[],
@@ -72,7 +72,7 @@ export function exportPlaces(
   const flat = rows.map(flatten);
   const session = rows[0]?.scrape_session_id?.slice(0, 8) ?? 'all';
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const name = filename ?? `terramap-${session}-${stamp}.${format}`;
+  const name = filename ?? `petain-${session}-${stamp}.${format}`;
 
   if (format === 'csv') {
     const csv = Papa.unparse(flat, { columns: COLUMNS as unknown as string[] });

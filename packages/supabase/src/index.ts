@@ -6,7 +6,7 @@ import type {
   ScrapeRunStatus,
   ScrapeRunSummary,
   ScrapeSource,
-} from '@terramap/types';
+} from '@petain/types';
 
 /** Minimal async storage shape Supabase's auth uses. */
 export interface AuthStorage {
@@ -15,7 +15,7 @@ export interface AuthStorage {
   removeItem: (key: string) => void | Promise<void>;
 }
 
-export interface TerramapClientOptions {
+export interface PetainClientOptions {
   url: string;
   anonKey: string;
   /**
@@ -27,10 +27,10 @@ export interface TerramapClientOptions {
   detectSessionInUrl?: boolean;
 }
 
-export function createTerramapClient(opts: TerramapClientOptions): SupabaseClient {
+export function createPetainClient(opts: PetainClientOptions): SupabaseClient {
   const { url, anonKey, storage, detectSessionInUrl = false } = opts;
   if (!url || !anonKey) {
-    console.warn('[terramap] Supabase url / anon key not set.');
+    console.warn('[petain] Supabase url / anon key not set.');
   }
   return createClient(url, anonKey, {
     auth: {

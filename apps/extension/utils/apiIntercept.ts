@@ -4,10 +4,10 @@
  * ISOLATED content script via window.postMessage.
  *
  * Must run in the page's MAIN world (see *.api.content.ts entrypoints).
- * The ISOLATED content script listens for { __terramap: true } messages.
+ * The ISOLATED content script listens for { __petain: true } messages.
  */
 
-export const INTERCEPT_MSG = '__terramap_api';
+export const INTERCEPT_MSG = '__petain_api';
 
 export function installInterceptor(patterns: RegExp[]): void {
   const matches = (url: string) => patterns.some((p) => p.test(url));

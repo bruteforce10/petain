@@ -1,4 +1,4 @@
-import type { ScrapeRunSummary, ScrapeSource } from '@terramap/types';
+import type { ScrapeRunSummary, ScrapeSource } from '@petain/types';
 
 const SOURCE_LABELS: Record<ScrapeSource, string> = {
   gmaps: 'Google Maps',

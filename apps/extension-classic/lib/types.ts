@@ -1,1 +1,1 @@
-export * from '@terramap/types';
+export * from '@petain/types';

@@ -1,4 +1,4 @@
-import type { AreaScrapeParams, Place } from '@terramap/types';
+import type { AreaScrapeParams, Place } from '@petain/types';
 import {
   scrapeCurrentPlace,
   scrapeGoogleMaps,
@@ -22,24 +22,24 @@ export async function scrapeAreaOnPage(
   // valid 1-result scrape instead of failing.
   const onPlacePage = location.pathname.startsWith('/maps/place/');
   if (onPlacePage) {
-    console.log('[terramap/scrape] single place page detected');
+    console.log('[petain/scrape] single place page detected');
     const single = await scrapeCurrentPlace();
     if (!single) return [];
     if (geofence?.enabled && !addressContains(single.address, geofence.kecamatan, geofence.kabupaten)) {
-      console.log('[terramap/scrape] single place filtered out by geofence:', single.address);
+      console.log('[petain/scrape] single place filtered out by geofence:', single.address);
       return [];
     }
     return [{ ...single, scrape_session_id: sessionId, keyword: query }];
   }
 
   const list = await scrapeGoogleMaps(scrollDelayMs);
-  console.log('[terramap/scrape] list pass:', list.length);
+  console.log('[petain/scrape] list pass:', list.length);
 
   const limited = list.slice(0, maxResults);
-  console.log('[terramap/scrape] capped to:', limited.length);
+  console.log('[petain/scrape] capped to:', limited.length);
 
   const deep = await scrapeGoogleMapsDeep(limited, { limit: maxResults, delay: scrollDelayMs });
-  console.log('[terramap/scrape] deep pass:', deep.length);
+  console.log('[petain/scrape] deep pass:', deep.length);
 
   const filtered =
     geofence?.enabled

@@ -1,10 +1,10 @@
 import { supabase } from '@/lib/supabase';
-import { nextSessionId } from '@terramap/area';
+import { nextSessionId } from '@petain/area';
 import {
   createScrapeRun,
   completeScrapeRun,
   failScrapeRun,
-} from '@terramap/supabase';
+} from '@petain/supabase';
 import type {
   AreaScrapeResult,
   RunAreaScrape,
@@ -22,7 +22,7 @@ import type {
 const GMAPS_URL_RE = /^https?:\/\/(www\.)?google\.[^/]+\/maps(\/|$|\?)|^https?:\/\/maps\.google\.[^/]+\//;
 
 export default defineBackground(() => {
-  console.log('[terramap/bg] background script booted');
+  console.log('[petain/bg] background script booted');
 
   // Alarm listener is a no-op; its only job is to wake the SW periodically so it
   // doesn't get terminated mid-scrape.
@@ -30,9 +30,9 @@ export default defineBackground(() => {
 
   chrome.runtime.onMessage.addListener((msg: StartAreaScrape, _sender, sendResponse) => {
     if (msg?.type !== 'START_AREA_SCRAPE') return;
-    console.log('[terramap/bg] START_AREA_SCRAPE received');
+    console.log('[petain/bg] START_AREA_SCRAPE received');
     handleStart(msg).then((r) => {
-      console.log('[terramap/bg] handleStart resolved:', r);
+      console.log('[petain/bg] handleStart resolved:', r);
       sendResponse(r);
     });
     return true;
@@ -53,7 +53,7 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   // `/maps/search/` (feed). Jakarta is just a sane default — actual search
   // location comes from the typed query.
   const url = 'https://www.google.com/maps/@-6.2088,106.8456,12z';
-  console.log('[terramap/bg] gmaps URL:', url, 'sessionId:', sessionId);
+  console.log('[petain/bg] gmaps URL:', url, 'sessionId:', sessionId);
 
   // Spec: every scrape click creates a new scrape_runs row. If creation fails,
   // bail BEFORE scraping — otherwise results would be unfiled.
@@ -64,9 +64,9 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       keyword: `${businessQuery} ${locationQuery}`.trim(),
     });
     runId = run.id;
-    console.log('[terramap/bg] scrape_run created:', runId);
+    console.log('[petain/bg] scrape_run created:', runId);
   } catch (e: any) {
-    console.log('[terramap/bg] createScrapeRun failed:', e);
+    console.log('[petain/bg] createScrapeRun failed:', e);
     return {
       type: 'SAVE_STATUS',
       ok: false,
@@ -86,10 +86,10 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       if (active.windowId !== undefined) {
         await chrome.windows.update(active.windowId, { focused: true });
       }
-      console.log('[terramap/bg] reused existing gmaps tab, id:', tab.id);
+      console.log('[petain/bg] reused existing gmaps tab, id:', tab.id);
     } else {
       tab = await chrome.tabs.create({ url, active: true });
-      console.log('[terramap/bg] tab created, id:', tab.id);
+      console.log('[petain/bg] tab created, id:', tab.id);
     }
   } catch (e: any) {
     await chrome.alarms.clear(alarmName);
@@ -101,7 +101,7 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
 
   try {
     await waitForTabComplete(tabId, 20_000);
-    console.log('[terramap/bg] tab', tabId, 'reported complete');
+    console.log('[petain/bg] tab', tabId, 'reported complete');
 
     const runMsg: RunAreaScrape = { type: 'RUN_AREA_SCRAPE', params: msg.params, sessionId };
 
@@ -111,12 +111,12 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
     try {
       await sendWithRetry(tabId, runMsg, 5, 800);
     } catch (e: any) {
-      console.log('[terramap/bg] sendMessage to content failed:', e);
+      console.log('[petain/bg] sendMessage to content failed:', e);
     }
-    console.log('[terramap/bg] RUN_AREA_SCRAPE dispatched, waiting for push…');
+    console.log('[petain/bg] RUN_AREA_SCRAPE dispatched, waiting for push…');
 
     const result = await resultPromise;
-    console.log('[terramap/bg] received push:', {
+    console.log('[petain/bg] received push:', {
       placeCount: result.places.length,
       error: (result as any).error,
     });
@@ -140,21 +140,21 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
         sessionId,
       };
     }
-    console.log('[terramap/bg] inserting', rows.length, 'rows. sample:', rows[0]);
+    console.log('[petain/bg] inserting', rows.length, 'rows. sample:', rows[0]);
     const { error } = await supabase.from('places').insert(rows);
     if (error) {
-      console.log('[terramap/bg] supabase insert error:', error);
+      console.log('[petain/bg] supabase insert error:', error);
       throw error;
     }
-    console.log('[terramap/bg] insert OK, count:', rows.length);
+    console.log('[petain/bg] insert OK, count:', rows.length);
     await completeScrapeRun(supabase, runId, rows.length).catch((e) => {
       // Rows are saved but the folder will stay 'running'. Spec calls this out
       // as a known recoverable gap for a later improvement.
-      console.log('[terramap/bg] completeScrapeRun failed:', e);
+      console.log('[petain/bg] completeScrapeRun failed:', e);
     });
     return { type: 'SAVE_STATUS', ok: true, inserted: rows.length, sessionId };
   } catch (e: any) {
-    console.log('[terramap/bg] handleStart caught:', e);
+    console.log('[petain/bg] handleStart caught:', e);
     const errMsg = e?.message ?? String(e);
     await failScrapeRun(supabase, runId, errMsg).catch(() => {});
     return {

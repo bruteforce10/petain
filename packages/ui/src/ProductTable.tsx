@@ -1,4 +1,4 @@
-import type { ProductRow } from '@terramap/types';
+import type { ProductRow } from '@petain/types';
 
 const RUPIAH = new Intl.NumberFormat('id-ID', {
   style: 'currency',

@@ -1,5 +1,5 @@
 {
-  "name": "@terramap/extension",
+  "name": "@petain/extension",
   "description": "Chrome extension scraper: Google Maps, Shopee, Tokopedia → Supabase",
   "private": true,
   "version": "0.1.0",
@@ -15,16 +15,16 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "@terramap/area": "workspace:*",
-    "@terramap/scrapers": "workspace:*",
-    "@terramap/supabase": "workspace:*",
-    "@terramap/types": "workspace:*",
-    "@terramap/ui": "workspace:*",
+    "@petain/area": "workspace:*",
+    "@petain/scrapers": "workspace:*",
+    "@petain/supabase": "workspace:*",
+    "@petain/types": "workspace:*",
+    "@petain/ui": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@terramap/config": "workspace:*",
+    "@petain/config": "workspace:*",
     "@types/chrome": "^0.0.287",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

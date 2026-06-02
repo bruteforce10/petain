@@ -142,7 +142,7 @@ export default function App() {
   if (!session) {
     return (
       <div className="p-4 space-y-3">
-        <h1 className="text-lg font-bold">TerraMap Classic</h1>
+        <h1 className="text-lg font-bold">Petain Classic</h1>
         <p className="text-xs text-gray-500">Scrape Google Maps tanpa AI</p>
         <form onSubmit={submitAuth} className="space-y-2">
           <input
@@ -178,7 +178,7 @@ export default function App() {
   return (
     <div className="p-3 space-y-3">
       <div className="flex justify-between items-center">
-        <h1 className="text-base font-bold">TerraMap Classic</h1>
+        <h1 className="text-base font-bold">Petain Classic</h1>
         <button className="text-xs text-gray-500 underline" onClick={() => supabase.auth.signOut()}>
           logout
         </button>

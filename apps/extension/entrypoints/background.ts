@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { createScrapeRun, completeScrapeRun, failScrapeRun } from '@terramap/supabase';
+import { createScrapeRun, completeScrapeRun, failScrapeRun } from '@petain/supabase';
 import type { ScrapeResult, SaveStatus } from '@/lib/types';
 
 /**

@@ -1,4 +1,4 @@
-import type { Place } from '@terramap/types';
+import type { Place } from '@petain/types';
 import { autoScroll, sleep, waitForSelector } from './scroll';
 
 /**

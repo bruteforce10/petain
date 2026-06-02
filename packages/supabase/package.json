@@ -1,5 +1,5 @@
 {
-  "name": "@terramap/supabase",
+  "name": "@petain/supabase",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "@terramap/types": "workspace:*"
+    "@petain/types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.3"
