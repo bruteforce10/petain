@@ -22,21 +22,49 @@ function fmtCoords(lat: number | null | undefined, lng: number | null | undefine
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
-const DAY_KEYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-
-function pickHoursLabel(hours: Record<string, string> | null | undefined): string | null {
-  if (!hours) return null;
-  const today = DAY_KEYS[new Date().getDay()];
-  const direct = hours[today];
-  if (direct) return `${today}: ${direct}`;
-  const ciKey = Object.keys(hours).find((k) => k.toLowerCase() === today.toLowerCase());
-  if (ciKey && hours[ciKey]) return `${ciKey}: ${hours[ciKey]}`;
-  const firstKey = Object.keys(hours).find((k) => hours[k]);
-  return firstKey ? `${firstKey}: ${hours[firstKey]}` : null;
-}
-
 function fmtNum(v: number | null | undefined) {
   return v == null ? '—' : new Intl.NumberFormat('id-ID').format(v);
+}
+
+const WEEKDAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+const WEEKEND = ['Sabtu', 'Minggu'];
+const DAY_SHORT: Record<string, string> = {
+  Senin: 'Sen', Selasa: 'Sel', Rabu: 'Rab', Kamis: 'Kam',
+  Jumat: 'Jum', Sabtu: 'Sab', Minggu: 'Min',
+};
+
+function getHours(hours: Record<string, string>, day: string): string | null {
+  const direct = hours[day];
+  if (direct) return direct;
+  const ciKey = Object.keys(hours).find((k) => k.toLowerCase() === day.toLowerCase());
+  return ciKey ? hours[ciKey] : null;
+}
+
+function formatHoursGroups(hours: Record<string, string> | null | undefined): string[] {
+  if (!hours) return [];
+  const lines: string[] = [];
+
+  const wdHours = WEEKDAYS.map((d) => getHours(hours, d));
+  const wdPresent = wdHours.filter(Boolean) as string[];
+  if (wdPresent.length === WEEKDAYS.length && wdPresent.every((h) => h === wdPresent[0])) {
+    lines.push(`Sen–Jum: ${wdPresent[0]}`);
+  } else {
+    WEEKDAYS.forEach((day, i) => {
+      if (wdHours[i]) lines.push(`${DAY_SHORT[day]}: ${wdHours[i]}`);
+    });
+  }
+
+  const weHours = WEEKEND.map((d) => getHours(hours, d));
+  const wePresent = weHours.filter(Boolean) as string[];
+  if (wePresent.length === WEEKEND.length && wePresent.every((h) => h === wePresent[0])) {
+    lines.push(`Sab–Min: ${wePresent[0]}`);
+  } else {
+    WEEKEND.forEach((day, i) => {
+      if (weHours[i]) lines.push(`${DAY_SHORT[day]}: ${weHours[i]}`);
+    });
+  }
+
+  return lines;
 }
 
 export interface PlaceTableProps {
@@ -90,12 +118,13 @@ export function PlaceTable({ rows }: PlaceTableProps) {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left text-xs text-gray-500">
             <tr>
-              <th className="px-3 py-2.5 font-medium">Tempat</th>
+              <th className="px-3 py-2.5 font-medium min-w-[220px]">Tempat</th>
               <th className="px-3 py-2.5 font-medium">Kategori</th>
-              <th className="px-3 py-2.5 font-medium">Alamat</th>
+              <th className="px-3 py-2.5 font-medium min-w-[360px]">Alamat</th>
               <th className="px-3 py-2.5 font-medium text-right">Rating</th>
               <th className="px-3 py-2.5 font-medium text-right">Review</th>
-              <th className="px-3 py-2.5 font-medium">Tanda Ramai</th>
+              <th className="px-3 py-2.5 font-medium min-w-[140px]">Tanda Ramai</th>
+              <th className="px-3 py-2.5 font-medium">Jam Buka</th>
               <th className="px-3 py-2.5 font-medium">Telepon</th>
               <th className="px-3 py-2.5 font-medium">Website</th>
               <th className="px-3 py-2.5 font-medium">Koordinat</th>
@@ -105,6 +134,7 @@ export function PlaceTable({ rows }: PlaceTableProps) {
             {sorted.map((p) => {
               const busy = busyLevel(p.review_count);
               const coords = fmtCoords(p.lat, p.lng);
+              const hoursLines = formatHoursGroups(p.hours);
               return (
                 <tr key={p.id} className="transition-colors hover:bg-green-50/30">
                   <td className="px-3 py-2.5">
@@ -113,19 +143,19 @@ export function PlaceTable({ rows }: PlaceTableProps) {
                         href={p.maps_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="line-clamp-2 max-w-[180px] font-medium text-brand hover:underline"
+                        className="font-medium text-brand hover:underline"
                       >
                         {p.name}
                       </a>
                     ) : (
-                      <span className="line-clamp-2 max-w-[180px] font-medium">{p.name}</span>
+                      <span className="font-medium">{p.name}</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 capitalize text-gray-500 whitespace-nowrap">
                     {p.category ?? '—'}
                   </td>
-                  <td className="px-3 py-2.5 max-w-[180px] text-gray-500">
-                    <span className="line-clamp-2 text-xs">{p.address ?? '—'}</span>
+                  <td className="px-3 py-2.5 text-gray-500">
+                    <span className="text-xs">{p.address ?? '—'}</span>
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
                     {p.rating != null ? (
@@ -140,18 +170,21 @@ export function PlaceTable({ rows }: PlaceTableProps) {
                   </td>
                   <td className="px-3 py-2.5">
                     {p.review_count != null ? (
-                      <div className="space-y-1">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${busy.className}`}>
-                          {busy.label}
-                        </span>
-                        {(() => {
-                          const hoursLabel = pickHoursLabel(p.hours);
-                          return hoursLabel ? (
-                            <div className="text-[10px] leading-tight text-gray-500 whitespace-nowrap">
-                              🕒 {hoursLabel}
-                            </div>
-                          ) : null;
-                        })()}
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${busy.className}`}>
+                        {busy.label}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {hoursLines.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {hoursLines.map((line) => (
+                          <div key={line} className="text-[10px] leading-tight text-gray-600 whitespace-nowrap">
+                            🕒 {line}
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <span className="text-gray-400">—</span>
@@ -172,7 +205,7 @@ export function PlaceTable({ rows }: PlaceTableProps) {
                         href={p.website}
                         target="_blank"
                         rel="noreferrer"
-                        className="line-clamp-1 max-w-[120px] block text-brand hover:underline"
+                        className="block text-brand hover:underline"
                         title={p.website}
                       >
                         {p.website.replace(/^https?:\/\/(www\.)?/, '')}
