@@ -1,8 +1,8 @@
 {
-  "name": "petain",
+  "name": "terramap",
   "private": true,
   "version": "0.1.0",
-  "description": "Petain monorepo: scraper extension + web dashboard",
+  "description": "TerraMap monorepo: scraper extension + web dashboard",
   "type": "module",
   "packageManager": "bun@1.3.11",
   "workspaces": [
@@ -11,10 +11,10 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "dev:ext": "turbo run dev --filter=@petain/extension",
-    "dev:web": "turbo run dev --filter=@petain/web",
-    "dev:labs": "turbo run dev --filter=@petain/labs",
-    "dev:ext-class": "turbo run dev --filter=@petain/extension-classic",
+    "dev:ext": "turbo run dev --filter=@terramap/extension",
+    "dev:web": "turbo run dev --filter=@terramap/web",
+    "dev:labs": "turbo run dev --filter=@terramap/labs",
+    "dev:ext-class": "turbo run dev --filter=@terramap/extension-classic",
     "build": "turbo run build",
     "compile": "turbo run compile",
     "lint": "turbo run lint"

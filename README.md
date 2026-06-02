@@ -1,6 +1,6 @@
-# Petain
+# TerraMap
 
-Monorepo for **Petain**: a Chrome (MV3) **extension** that scrapes Google Maps
+Monorepo for **TerraMap**: a Chrome (MV3) **extension** that scrapes Google Maps
 places and Shopee / Tokopedia products into **Supabase**, plus a **web dashboard**
 to browse what you've saved. Built with Bun + Turborepo + TypeScript.
 
@@ -16,7 +16,7 @@ apps/
   web/         Next.js (App Router) landing page + saved-rows dashboard
 packages/
   types/       shared data shapes (Product, Place, ProductRow, messages)
-  supabase/    createPetainClient() factory + fetchProducts/fetchPlaces
+  supabase/    createTerramapClient() factory + fetchProducts/fetchPlaces
   ui/          shared React components (ProductTable, EmptyState)
   config/      shared tsconfig base + Tailwind preset
 ```

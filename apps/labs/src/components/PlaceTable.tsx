@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { PlaceRow } from '@petain/types';
+import type { PlaceRow } from '@terramap/types';
 
 type SortKey = 'default' | 'rating' | 'reviews' | 'busy';
 

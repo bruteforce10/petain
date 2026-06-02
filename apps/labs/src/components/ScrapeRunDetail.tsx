@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { PlaceRow, ProductRow, ScrapeRunSummary } from '@petain/types';
+import type { PlaceRow, ProductRow, ScrapeRunSummary } from '@terramap/types';
 import {
   fetchPlacesByRun,
   fetchProductsByRun,
   renameScrapeRun,
   deleteScrapeRun,
-} from '@petain/supabase';
-import { ProductTable, EmptyState } from '@petain/ui';
+} from '@terramap/supabase';
+import { ProductTable, EmptyState } from '@terramap/ui';
 import { PlaceTable } from './PlaceTable';
 import { AreaAnalysis } from './AreaAnalysis';
 import { supabase } from '../../lib/supabase-browser';

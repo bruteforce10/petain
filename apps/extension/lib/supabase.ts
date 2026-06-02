@@ -1,4 +1,4 @@
-import { createPetainClient } from '@petain/supabase';
+import { createTerramapClient } from '@terramap/supabase';
 
 // WXT exposes env vars prefixed WXT_ on import.meta.env.
 const url = import.meta.env.WXT_SUPABASE_URL as string;
@@ -13,4 +13,4 @@ const chromeStorage = {
   removeItem: (key: string) => chrome.storage.local.remove(key),
 };
 
-export const supabase = createPetainClient({ url, anonKey, storage: chromeStorage });
+export const supabase = createTerramapClient({ url, anonKey, storage: chromeStorage });

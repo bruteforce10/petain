@@ -1,5 +1,5 @@
 {
-  "name": "@petain/agent",
+  "name": "@terramap/agent",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
-    "@petain/area": "workspace:*",
-    "@petain/types": "workspace:*"
+    "@terramap/area": "workspace:*",
+    "@terramap/types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.3"

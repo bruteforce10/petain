@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import type { ScrapeRunSummary } from '@petain/types';
-import { fetchScrapeRuns } from '@petain/supabase';
-import { EmptyState } from '@petain/ui';
+import type { ScrapeRunSummary } from '@terramap/types';
+import { fetchScrapeRuns } from '@terramap/supabase';
+import { EmptyState } from '@terramap/ui';
 import { ScrapeRunList } from '@/components/ScrapeRunList';
 import { ScrapeRunDetail } from '@/components/ScrapeRunDetail';
 import { supabase } from '../lib/supabase-browser';
@@ -52,7 +52,7 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold">Petain Labs</h1>
+        <h1 className="text-xl font-bold">TerraMap Labs</h1>
         <p className="text-sm text-gray-500">Log in to view your scraped data.</p>
         <form onSubmit={submit} className="space-y-3">
           <input

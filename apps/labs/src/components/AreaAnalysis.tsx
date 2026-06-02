@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { PlaceRow } from '@petain/types';
+import type { PlaceRow } from '@terramap/types';
 
 /**
  * Area-viability analysis: groups scraped places by category and ranks each

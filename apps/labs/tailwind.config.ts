@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss';
-import preset from '@petain/config/tailwind';
+import preset from '@terramap/config/tailwind';
 
 const config: Config = {
   presets: [preset],

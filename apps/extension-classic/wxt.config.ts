@@ -18,7 +18,7 @@ export default defineConfig({
     },
   } : undefined,
   manifest: {
-    name: 'Petain Classic (Area)',
+    name: 'TerraMap Classic (Area)',
     description: 'Pick a point + radius on a map, scrape every POI inside it',
     permissions: ['storage', 'activeTab', 'scripting', 'tabs', 'alarms'],
     host_permissions: ['https://*.google.com/*'],

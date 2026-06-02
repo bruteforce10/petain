@@ -1,6 +1,6 @@
 {
-  "name": "@petain/labs",
-  "description": "Lightweight viewer for scraped Petain data (Tokopedia, Shopee, Google Maps)",
+  "name": "@terramap/labs",
+  "description": "Lightweight viewer for scraped TerraMap data (Tokopedia, Shopee, Google Maps)",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,14 +12,14 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "@petain/supabase": "workspace:*",
-    "@petain/types": "workspace:*",
-    "@petain/ui": "workspace:*",
+    "@terramap/supabase": "workspace:*",
+    "@terramap/types": "workspace:*",
+    "@terramap/ui": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@petain/config": "workspace:*",
+    "@terramap/config": "workspace:*",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.4",

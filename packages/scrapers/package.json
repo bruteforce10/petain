@@ -1,5 +1,5 @@
 {
-  "name": "@petain/scrapers",
+  "name": "@terramap/scrapers",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,8 +15,8 @@
     "compile": "tsc --noEmit"
   },
   "dependencies": {
-    "@petain/area": "workspace:*",
-    "@petain/types": "workspace:*"
+    "@terramap/area": "workspace:*",
+    "@terramap/types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.3"

@@ -1,1 +1,1 @@
-export * from '@petain/scrapers/area';
+export * from '@terramap/scrapers/area';

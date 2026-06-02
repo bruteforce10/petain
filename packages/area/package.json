@@ -1,5 +1,5 @@
 {
-  "name": "@petain/area",
+  "name": "@terramap/area",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "compile": "tsc --noEmit"
   },
   "dependencies": {
-    "@petain/types": "workspace:*"
+    "@terramap/types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.5.3"

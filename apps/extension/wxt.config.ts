@@ -19,7 +19,7 @@ export default defineConfig({
     },
   } : undefined,
   manifest: {
-    name: 'Petain Scraper',
+    name: 'TerraMap Scraper',
     description: 'Scrape Google Maps places & Shopee/Tokopedia products to Supabase',
     permissions: ['storage', 'activeTab', 'scripting', 'tabs'],
     host_permissions: [

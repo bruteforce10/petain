@@ -82,7 +82,7 @@ export default function App() {
   if (!session) {
     return (
       <div className="p-4 space-y-3">
-        <h1 className="text-lg font-bold">Petain</h1>
+        <h1 className="text-lg font-bold">TerraMap</h1>
         <form onSubmit={submitAuth} className="space-y-2">
           <input
             className="w-full border rounded px-2 py-1 text-sm"
@@ -117,7 +117,7 @@ export default function App() {
   return (
     <div className="p-4 space-y-3">
       <div className="flex justify-between items-center">
-        <h1 className="text-lg font-bold">Petain</h1>
+        <h1 className="text-lg font-bold">TerraMap</h1>
         <button className="text-xs text-gray-500 underline" onClick={() => supabase.auth.signOut()}>
           logout
         </button>
