@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import type { ProductRow, PlaceRow } from '@terramap/types';
-import { fetchProducts, fetchPlaces } from '@terramap/supabase';
-import { ProductTable, EmptyState } from '@terramap/ui';
-import { PlaceTable } from '@/components/PlaceTable';
-import { AreaAnalysis } from '@/components/AreaAnalysis';
+import type { ScrapeRunSummary } from '@terramap/types';
+import { fetchScrapeRuns } from '@terramap/supabase';
+import { EmptyState } from '@terramap/ui';
+import { ScrapeRunList } from '@/components/ScrapeRunList';
+import { ScrapeRunDetail } from '@/components/ScrapeRunDetail';
 import { supabase } from '../lib/supabase-browser';
 
 export default function App() {
@@ -87,35 +87,28 @@ function LoginForm() {
 }
 
 function Viewer({ email }: { email: string }) {
-  const [products, setProducts] = useState<ProductRow[] | null>(null);
-  const [places, setPlaces] = useState<PlaceRow[] | null>(null);
+  const [runs, setRuns] = useState<ScrapeRunSummary[] | null>(null);
   const [err, setErr] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([fetchProducts(supabase), fetchPlaces(supabase)])
-      .then(([prods, plcs]) => {
-        setProducts(prods);
-        setPlaces(plcs);
-      })
+  const loadRuns = useCallback(() => {
+    setErr('');
+    fetchScrapeRuns(supabase)
+      .then(setRuns)
       .catch((e) => setErr(e?.message ?? 'Failed to load'));
   }, []);
 
-  const tokopedia = useMemo(
-    () => (products ?? []).filter((p) => p.source === 'tokopedia'),
-    [products],
-  );
-  const shopee = useMemo(
-    () => (products ?? []).filter((p) => p.source === 'shopee'),
-    [products],
-  );
+  useEffect(() => {
+    loadRuns();
+  }, [loadRuns]);
 
-  const loading = products == null || places == null;
+  const selected = runs?.find((r) => r.id === selectedId) ?? null;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Scraped data</h1>
+          <h1 className="text-2xl font-bold">Scrape history</h1>
           <p className="text-sm text-gray-500">{email}</p>
         </div>
         <button className="text-sm text-gray-500 underline" onClick={() => supabase.auth.signOut()}>
@@ -124,63 +117,27 @@ function Viewer({ email }: { email: string }) {
       </header>
 
       {err && <p className="mb-4 text-sm text-red-600">{err}</p>}
-      {loading && !err && <p className="text-gray-500">Loading…</p>}
 
-      {!loading && (
-        <div className="space-y-10">
-          <Section title="Tokopedia" count={tokopedia.length}>
-            {tokopedia.length ? (
-              <ProductTable rows={tokopedia} />
-            ) : (
-              <EmptyState title="No Tokopedia products" hint="Scrape a Tokopedia search page." />
-            )}
-          </Section>
-
-          <Section title="Shopee" count={shopee.length}>
-            {shopee.length ? (
-              <ProductTable rows={shopee} />
-            ) : (
-              <EmptyState title="No Shopee products" hint="Scrape a Shopee search page." />
-            )}
-          </Section>
-
-          {places!.length > 0 && (
-            <Section title="Area analysis" count={places!.length}>
-              <AreaAnalysis rows={places!} />
-            </Section>
-          )}
-
-          <Section title="Google Maps" count={places!.length}>
-            {places!.length ? (
-              <PlaceTable rows={places!} />
-            ) : (
-              <EmptyState title="No places" hint="Scrape a Google Maps results page." />
-            )}
-          </Section>
-        </div>
-      )}
+      {selected ? (
+        <ScrapeRunDetail
+          run={selected}
+          onBack={() => setSelectedId(null)}
+          onChanged={loadRuns}
+          onDeleted={() => {
+            setSelectedId(null);
+            loadRuns();
+          }}
+        />
+      ) : runs == null && !err ? (
+        <p className="text-gray-500">Loading…</p>
+      ) : runs && runs.length === 0 ? (
+        <EmptyState
+          title="No scrape runs yet"
+          hint="Use the extension to scrape Google Maps, Shopee, or Tokopedia."
+        />
+      ) : runs ? (
+        <ScrapeRunList runs={runs} onOpen={(r) => setSelectedId(r.id)} />
+      ) : null}
     </main>
-  );
-}
-
-function Section({
-  title,
-  count,
-  children,
-}: {
-  title: string;
-  count: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-        {title}
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-          {count}
-        </span>
-      </h2>
-      {children}
-    </section>
   );
 }

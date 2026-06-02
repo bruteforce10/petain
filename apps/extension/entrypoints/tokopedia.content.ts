@@ -3,6 +3,12 @@ import { autoScroll, sleep } from '@/utils/scroll';
 import { parseTokopediaApi, scrapeTokopediaDom } from '@/lib/scrapers/tokopedia';
 import type { StartScrape, ScrapeResult, Product } from '@/lib/types';
 
+function detectTokopediaKeyword(): string | null {
+  const params = new URLSearchParams(location.search);
+  const q = params.get('q') ?? params.get('keyword');
+  return q?.trim() || null;
+}
+
 export default defineContentScript({
   matches: ['https://www.tokopedia.com/*'],
   main() {
@@ -25,6 +31,7 @@ export default defineContentScript({
         const result: ScrapeResult = {
           type: 'SCRAPE_RESULT',
           source: 'tokopedia',
+          keyword: detectTokopediaKeyword(),
           products: [...captured.values()],
         };
         chrome.runtime.sendMessage(result, sendResponse);

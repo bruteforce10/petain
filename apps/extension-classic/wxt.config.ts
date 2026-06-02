@@ -1,12 +1,22 @@
 import { defineConfig } from 'wxt';
+import { existsSync } from 'node:fs';
+
+const chromeBinary = [
+  process.env.CHROME_PATH,
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+  '/opt/thorium-browser-avx2/thorium',
+].find((path): path is string => Boolean(path && existsSync(path)));
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
-  runner: {
+  runner: chromeBinary ? {
     binaries: {
-      chrome: process.env.CHROME_PATH || '/opt/thorium-browser-avx2/thorium',
+      chrome: chromeBinary,
     },
-  },
+  } : undefined,
   manifest: {
     name: 'TerraMap Classic (Area)',
     description: 'Pick a point + radius on a map, scrape every POI inside it',

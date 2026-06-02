@@ -1,5 +1,10 @@
 import { supabase } from '@/lib/supabase';
-import { buildGmapsSearchUrl, pickZoomForRadius, nextSessionId } from '@terramap/area';
+import { nextSessionId } from '@terramap/area';
+import {
+  createScrapeRun,
+  completeScrapeRun,
+  failScrapeRun,
+} from '@terramap/supabase';
 import type {
   AreaScrapeResult,
   RunAreaScrape,
@@ -41,9 +46,34 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   }
   const userId = userData.user.id;
   const sessionId = nextSessionId();
-  const { keyword, lat, lng, radiusM } = msg.params;
-  const url = buildGmapsSearchUrl({ keyword, lat, lng, zoom: pickZoomForRadius(radiusM) });
+  const { businessQuery, locationQuery } = msg.params;
+  // Coordinate URL avoids Maps' geolocation-based redirect + keeps the page in
+  // a predictable "map only" state. Bare `/maps/` lets Maps interpret the next
+  // search aggressively and redirect to `/maps/place/` (single POI) instead of
+  // `/maps/search/` (feed). Jakarta is just a sane default — actual search
+  // location comes from the typed query.
+  const url = 'https://www.google.com/maps/@-6.2088,106.8456,12z';
   console.log('[terramap/bg] gmaps URL:', url, 'sessionId:', sessionId);
+
+  // Spec: every scrape click creates a new scrape_runs row. If creation fails,
+  // bail BEFORE scraping — otherwise results would be unfiled.
+  let runId: string;
+  try {
+    const run = await createScrapeRun(supabase, {
+      source: 'gmaps',
+      keyword: `${businessQuery} ${locationQuery}`.trim(),
+    });
+    runId = run.id;
+    console.log('[terramap/bg] scrape_run created:', runId);
+  } catch (e: any) {
+    console.log('[terramap/bg] createScrapeRun failed:', e);
+    return {
+      type: 'SAVE_STATUS',
+      ok: false,
+      inserted: 0,
+      error: `Could not create folder: ${e?.message ?? e}`,
+    };
+  }
 
   const alarmName = `scrape-${sessionId}`;
   await chrome.alarms.create(alarmName, { periodInMinutes: 0.4 });
@@ -63,7 +93,9 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
     }
   } catch (e: any) {
     await chrome.alarms.clear(alarmName);
-    return { type: 'SAVE_STATUS', ok: false, inserted: 0, error: `tab open: ${e?.message ?? e}` };
+    const errMsg = `tab open: ${e?.message ?? e}`;
+    await failScrapeRun(supabase, runId, errMsg).catch(() => {});
+    return { type: 'SAVE_STATUS', ok: false, inserted: 0, error: errMsg };
   }
   const tabId = tab.id!;
 
@@ -89,16 +121,22 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       error: (result as any).error,
     });
 
-    const rows = result.places.map((p) => ({ ...p, user_id: userId }));
+    const rows = result.places.map((p) => ({
+      ...p,
+      user_id: userId,
+      scrape_run_id: runId,
+    }));
     if (!rows.length) {
       const err = (result as any).error;
+      const errMsg =
+        err ??
+        'Scrape returned 0 places (selectors stale, or none inside radius). Check Maps tab console.';
+      await failScrapeRun(supabase, runId, errMsg).catch(() => {});
       return {
         type: 'SAVE_STATUS',
         ok: false,
         inserted: 0,
-        error:
-          err ??
-          'Scrape returned 0 places (selectors stale, or none inside radius). Check Maps tab console.',
+        error: errMsg,
         sessionId,
       };
     }
@@ -109,14 +147,21 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       throw error;
     }
     console.log('[terramap/bg] insert OK, count:', rows.length);
+    await completeScrapeRun(supabase, runId, rows.length).catch((e) => {
+      // Rows are saved but the folder will stay 'running'. Spec calls this out
+      // as a known recoverable gap for a later improvement.
+      console.log('[terramap/bg] completeScrapeRun failed:', e);
+    });
     return { type: 'SAVE_STATUS', ok: true, inserted: rows.length, sessionId };
   } catch (e: any) {
     console.log('[terramap/bg] handleStart caught:', e);
+    const errMsg = e?.message ?? String(e);
+    await failScrapeRun(supabase, runId, errMsg).catch(() => {});
     return {
       type: 'SAVE_STATUS',
       ok: false,
       inserted: 0,
-      error: e?.message ?? String(e),
+      error: errMsg,
       sessionId,
     };
   } finally {

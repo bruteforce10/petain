@@ -2,6 +2,36 @@
 
 export type Source = 'gmaps' | 'shopee' | 'tokopedia';
 
+/** A scrape source as persisted to `scrape_runs.source`. Alias of Source. */
+export type ScrapeSource = Source;
+
+export type ScrapeRunStatus = 'running' | 'success' | 'failed';
+
+/** A `scrape_runs` row — one folder per scrape attempt. */
+export interface ScrapeRun {
+  id: string;
+  user_id: string;
+  source: ScrapeSource;
+  keyword: string;
+  title: string;
+  status: ScrapeRunStatus;
+  row_count: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Lightweight projection used by Labs folder list. */
+export interface ScrapeRunSummary {
+  id: string;
+  source: ScrapeSource;
+  keyword: string;
+  title: string;
+  status: ScrapeRunStatus;
+  row_count: number;
+  created_at: string;
+}
+
 /** A place scraped from Google Maps (insert into `places`). */
 export interface Place {
   name: string;
@@ -29,14 +59,21 @@ export interface Place {
   area_center_lng?: number | null;
   area_radius_m?: number | null;
   keyword?: string | null;
+  scrape_run_id?: string | null;
 }
 
 /** Parameters to start one area scrape session. */
 export interface AreaScrapeParams {
-  keyword: string;
-  lat: number;
-  lng: number;
-  radiusM: number;
+  businessQuery: string;
+  locationQuery: string;
+  maxResults: number;
+  scrollDelayMs: number;
+  geofence?: {
+    enabled: boolean;
+    provinsi: string;
+    kabupaten: string;
+    kecamatan: string;
+  };
 }
 
 /** A product scraped from Shopee/Tokopedia (insert into `products`). */
@@ -49,6 +86,7 @@ export interface Product {
   seller?: string | null;
   product_url?: string | null;
   image_url?: string | null;
+  scrape_run_id?: string | null;
 }
 
 /** Columns added by the DB on insert (see supabase/schema.sql). */
@@ -68,6 +106,8 @@ export type PlaceRow = Place & DbColumns;
 export interface ScrapeResult {
   type: 'SCRAPE_RESULT';
   source: Source;
+  /** Search keyword detected on the page; used as the folder title hint. */
+  keyword?: string | null;
   places?: Place[];
   products?: Product[];
 }

@@ -3,6 +3,12 @@ import { autoScroll, sleep } from '@/utils/scroll';
 import { parseShopeeApi, scrapeShopeeDom } from '@/lib/scrapers/shopee';
 import type { StartScrape, ScrapeResult, Product } from '@/lib/types';
 
+function detectShopeeKeyword(): string | null {
+  const params = new URLSearchParams(location.search);
+  const q = params.get('keyword') ?? params.get('q');
+  return q?.trim() || null;
+}
+
 export default defineContentScript({
   matches: ['https://shopee.co.id/*'],
   main() {
@@ -28,6 +34,7 @@ export default defineContentScript({
         const result: ScrapeResult = {
           type: 'SCRAPE_RESULT',
           source: 'shopee',
+          keyword: detectShopeeKeyword(),
           products: [...captured.values()],
         };
         chrome.runtime.sendMessage(result, sendResponse);

@@ -33,6 +33,16 @@ export async function searchOnMaps(keyword: string): Promise<void> {
   input.focus();
   await sleep(600);
 
+  // Dismiss autocomplete dropdown before Enter. Specific queries (e.g. with
+  // kecamatan + kabupaten) often highlight a single POI suggestion — pressing
+  // Enter while a suggestion is highlighted accepts it and Maps navigates to
+  // /maps/place/ (single page) instead of /maps/search/ (feed). Escape closes
+  // the dropdown without clearing input text.
+  input.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }),
+  );
+  await sleep(200);
+
   // keyCode/which 13 required — Maps' handler reads the legacy keyCode, not `key`.
   for (const t of ['keydown', 'keypress', 'keyup']) {
     input.dispatchEvent(
@@ -40,14 +50,29 @@ export async function searchOnMaps(keyword: string): Promise<void> {
     );
   }
 
-  // Wait for results feed to appear (Maps swaps panels via SPA, no full reload).
-  const feed = await waitForSelector(FEED, 15_000);
-  if (!feed) {
-    throw new Error(
-      `Results feed never appeared after searching "${keyword}". ` +
-        `Path: ${location.pathname}. Maps may have redirected to a place page.`,
-    );
+  // Maps either shows the feed (list of POIs) OR redirects to /maps/place/ when
+  // the query strongly matches one POI. Both are valid scrape targets.
+  const start = Date.now();
+  while (Date.now() - start < 15_000) {
+    if (document.querySelector(FEED) || document.querySelector(DETAIL_NAME)) return;
+    await sleep(250);
   }
+  throw new Error(
+    `Neither results feed nor place detail appeared after searching "${keyword}". ` +
+      `Path: ${location.pathname}.`,
+  );
+}
+
+/**
+ * Extract the currently-open place detail panel as a single Place. Used when
+ * Maps redirected to /maps/place/ because the search query strongly matched
+ * one POI — better than returning 0 results.
+ */
+export async function scrapeCurrentPlace(): Promise<Place | null> {
+  const h1 = (await waitForSelector(DETAIL_NAME, 5_000)) as HTMLElement | null;
+  if (!h1) return null;
+  const panel = (h1.closest('[role="main"]') ?? document.body) as Element;
+  return parseDetail(panel, { name: h1.textContent?.trim() || '' } as Place);
 }
 
 function extractLatLng(href: string | null): { lat: number | null; lng: number | null } {
@@ -115,11 +140,11 @@ function parseCard(card: Element): Place | null {
   };
 }
 
-export async function scrapeGoogleMaps(): Promise<Place[]> {
+export async function scrapeGoogleMaps(delayMs = 800): Promise<Place[]> {
   const feed = (await waitForSelector(FEED)) as HTMLElement | null;
   if (!feed) return [];
 
-  await autoScroll(feed, { step: 1000, delay: 800, maxRounds: 50 });
+  await autoScroll(feed, { step: 1000, delay: delayMs, maxRounds: 50 });
 
   const cards = feed.querySelectorAll('div[role="article"], div.Nv2PK');
   const places: Place[] = [];

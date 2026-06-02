@@ -1,57 +1,81 @@
 import type { AreaScrapeParams, Place } from '@terramap/types';
-import { filterWithinRadius } from '@terramap/area';
-import { scrapeGoogleMaps, scrapeGoogleMapsDeep, searchOnMaps } from './gmaps';
+import {
+  scrapeCurrentPlace,
+  scrapeGoogleMaps,
+  scrapeGoogleMapsDeep,
+  searchOnMaps,
+} from './gmaps';
+
+export async function scrapeAreaOnPage(
+  params: AreaScrapeParams & { sessionId: string },
+): Promise<Place[]> {
+  const { businessQuery, locationQuery, maxResults, scrollDelayMs, geofence, sessionId } = params;
+
+  const query = geofence?.enabled
+    ? `${businessQuery} ${geofence.kecamatan} ${geofence.kabupaten}`
+    : `${businessQuery} ${locationQuery}`;
+
+  await searchOnMaps(query);
+
+  // Maps redirects to /maps/place/ when the query strongly matches a single
+  // POI (e.g. "Mie Gacoan Pondok Aren" → one specific store). Treat that as a
+  // valid 1-result scrape instead of failing.
+  const onPlacePage = location.pathname.startsWith('/maps/place/');
+  if (onPlacePage) {
+    console.log('[terramap/scrape] single place page detected');
+    const single = await scrapeCurrentPlace();
+    if (!single) return [];
+    if (geofence?.enabled && !addressContains(single.address, geofence.kecamatan, geofence.kabupaten)) {
+      console.log('[terramap/scrape] single place filtered out by geofence:', single.address);
+      return [];
+    }
+    return [{ ...single, scrape_session_id: sessionId, keyword: query }];
+  }
+
+  const list = await scrapeGoogleMaps(scrollDelayMs);
+  console.log('[terramap/scrape] list pass:', list.length);
+
+  const limited = list.slice(0, maxResults);
+  console.log('[terramap/scrape] capped to:', limited.length);
+
+  const deep = await scrapeGoogleMapsDeep(limited, { limit: maxResults, delay: scrollDelayMs });
+  console.log('[terramap/scrape] deep pass:', deep.length);
+
+  const filtered =
+    geofence?.enabled
+      ? deep.filter((p) => addressContains(p.address, geofence.kecamatan, geofence.kabupaten))
+      : deep;
+
+  return filtered.map((p) => ({ ...p, scrape_session_id: sessionId, keyword: query }));
+}
 
 /**
- * Scrape kernel for an area-bounded search.
- *
- * Assumes the active tab is already on a Google Maps search URL centered
- * on `lat/lng` (caller is responsible for navigating with
- * `buildGmapsSearchUrl(...)`). The kernel itself only:
- *
- *   1. Runs the list-pass scraper (already auto-scrolls the feed).
- *   2. Runs the deep-pass scraper (clicks each card for detail fields).
- *   3. Filters results by haversine distance — Maps frequently returns
- *      POIs outside the visible viewport, so we strictly cap to radiusM.
- *   4. Stamps each row with area metadata so the dashboard can group it.
- *
- * Returns the enriched, filtered places. The session_id is allocated by
- * the caller and passed in so background can reuse the same id for any
- * follow-up (e.g. retry, additional keyword pass).
+ * Match address text against location terms with Indonesian abbreviation
+ * normalization. Maps addresses often write "Kec. Pd. Aren" instead of
+ * "Kecamatan Pondok Aren" — naive substring match would reject those.
  */
-export async function scrapeAreaOnPage(
-  params: AreaScrapeParams & { sessionId: string; deepLimit?: number },
-): Promise<Place[]> {
-  const { keyword, lat, lng, radiusM, sessionId, deepLimit = 60 } = params;
+function addressContains(address: string | null | undefined, ...terms: string[]): boolean {
+  if (!address) return false;
+  const normalized = normalizeIndoAddress(address);
+  return terms.some((t) => normalized.includes(normalizeIndoTerm(t)));
+}
 
-  await searchOnMaps(keyword);
-  const list = await scrapeGoogleMaps();
-  console.log('[terramap/scrape] list pass:', list.length, 'sample:', list[0]);
+function normalizeIndoAddress(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\bpd\.\s*/g, 'pondok ')
+    .replace(/\bjl\.\s*/g, 'jalan ')
+    .replace(/\bkec\.\s*/g, 'kecamatan ')
+    .replace(/\bkel\.\s*/g, 'kelurahan ')
+    .replace(/\bkab\.\s*/g, 'kabupaten ')
+    .replace(/\bds\.\s*/g, 'desa ');
+}
 
-  // Filter by radius BEFORE the deep pass. A generic keyword fills the feed
-  // with 100+ cards but only a handful sit inside a small radius; deep-scraping
-  // all 60 (clicking each card) blows past the background's 180s push timeout.
-  // The list pass already extracts lat/lng, so cap the deep pass to the POIs
-  // actually inside the circle.
-  const center = { lat, lng };
-  const inside = filterWithinRadius(list, center, radiusM);
-  console.log('[terramap/scrape] inside radius:', inside.length, '/', list.length);
-
-  const deep = await scrapeGoogleMapsDeep(inside, { limit: deepLimit });
-  console.log(
-    '[terramap/scrape] deep pass:',
-    deep.length,
-    'sample lat/lng:',
-    deep[0]?.lat,
-    deep[0]?.lng,
-  );
-
-  return deep.map((p) => ({
-    ...p,
-    scrape_session_id: sessionId,
-    area_center_lat: lat,
-    area_center_lng: lng,
-    area_radius_m: radiusM,
-    keyword,
-  }));
+function normalizeIndoTerm(s: string): string {
+  // Strip leading "Kabupaten "/"Kota "/"Kecamatan " — Maps addresses sometimes
+  // omit the prefix (e.g. "Bandung" vs "Kota Bandung").
+  return s
+    .toLowerCase()
+    .replace(/^(kabupaten|kota|kab\.?|kel\.?|kec\.?)\s+/, '')
+    .trim();
 }

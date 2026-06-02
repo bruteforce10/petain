@@ -1,5 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { ProductRow, PlaceRow } from '@terramap/types';
+import type {
+  ProductRow,
+  PlaceRow,
+  ScrapeRun,
+  ScrapeRunStatus,
+  ScrapeRunSummary,
+  ScrapeSource,
+} from '@terramap/types';
 
 /** Minimal async storage shape Supabase's auth uses. */
 export interface AuthStorage {
@@ -130,6 +137,158 @@ export async function fetchSessions(
     }
   }
   return Array.from(groups.values()).slice(0, limit);
+}
+
+const SOURCE_LABELS: Record<ScrapeSource, string> = {
+  gmaps: 'Google Maps',
+  shopee: 'Shopee',
+  tokopedia: 'Tokopedia',
+};
+
+function todayIso(): string {
+  // YYYY-MM-DD in local time — matches "today" the way the user thinks.
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Default folder title: `YYYY-MM-DD - <keyword> - <source label>`. */
+export function buildScrapeRunTitle(source: ScrapeSource, keyword: string): string {
+  return `${todayIso()} - ${keyword} - ${SOURCE_LABELS[source]}`;
+}
+
+export interface CreateScrapeRunInput {
+  source: ScrapeSource;
+  keyword: string;
+  title?: string;
+}
+
+/** Create a `running` scrape run row and return it. */
+export async function createScrapeRun(
+  client: SupabaseClient,
+  input: CreateScrapeRunInput,
+): Promise<ScrapeRun> {
+  const { data: userData, error: userErr } = await client.auth.getUser();
+  if (userErr || !userData.user) throw new Error('Not logged in');
+  const keyword = input.keyword.trim() || 'Untitled scrape';
+  const title = input.title?.trim() || buildScrapeRunTitle(input.source, keyword);
+  const { data, error } = await client
+    .from('scrape_runs')
+    .insert({
+      user_id: userData.user.id,
+      source: input.source,
+      keyword,
+      title,
+      status: 'running' satisfies ScrapeRunStatus,
+      row_count: 0,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as ScrapeRun;
+}
+
+/** Mark a run as success and store its final row count. */
+export async function completeScrapeRun(
+  client: SupabaseClient,
+  runId: string,
+  rowCount: number,
+): Promise<void> {
+  const { error } = await client
+    .from('scrape_runs')
+    .update({
+      status: 'success' satisfies ScrapeRunStatus,
+      row_count: rowCount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', runId);
+  if (error) throw error;
+}
+
+/** Mark a run as failed and store the error message. */
+export async function failScrapeRun(
+  client: SupabaseClient,
+  runId: string,
+  errorMessage: string,
+): Promise<void> {
+  const { error } = await client
+    .from('scrape_runs')
+    .update({
+      status: 'failed' satisfies ScrapeRunStatus,
+      error_message: errorMessage,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', runId);
+  if (error) throw error;
+}
+
+/** List the current user's scrape runs, newest first. */
+export async function fetchScrapeRuns(
+  client: SupabaseClient,
+  opts: { limit?: number } = {},
+): Promise<ScrapeRunSummary[]> {
+  const { limit = 200 } = opts;
+  const { data, error } = await client
+    .from('scrape_runs')
+    .select('id, source, keyword, title, status, row_count, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as ScrapeRunSummary[];
+}
+
+/** Fetch all places belonging to a single scrape run. */
+export async function fetchPlacesByRun(
+  client: SupabaseClient,
+  runId: string,
+): Promise<PlaceRow[]> {
+  const { data, error } = await client
+    .from('places')
+    .select('*')
+    .eq('scrape_run_id', runId)
+    .order('rating', { ascending: false, nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []) as PlaceRow[];
+}
+
+/** Fetch all products belonging to a single scrape run. */
+export async function fetchProductsByRun(
+  client: SupabaseClient,
+  runId: string,
+): Promise<ProductRow[]> {
+  const { data, error } = await client
+    .from('products')
+    .select('*')
+    .eq('scrape_run_id', runId)
+    .order('scraped_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ProductRow[];
+}
+
+/** Rename a scrape run (folder title). */
+export async function renameScrapeRun(
+  client: SupabaseClient,
+  runId: string,
+  title: string,
+): Promise<void> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error('Title cannot be empty');
+  const { error } = await client
+    .from('scrape_runs')
+    .update({ title: trimmed, updated_at: new Date().toISOString() })
+    .eq('id', runId);
+  if (error) throw error;
+}
+
+/** Delete a scrape run; ON DELETE CASCADE removes child places/products. */
+export async function deleteScrapeRun(
+  client: SupabaseClient,
+  runId: string,
+): Promise<void> {
+  const { error } = await client.from('scrape_runs').delete().eq('id', runId);
+  if (error) throw error;
 }
 
 export type { SupabaseClient };

@@ -20,6 +20,7 @@
     "@terramap/supabase": "workspace:*",
     "@terramap/types": "workspace:*",
     "@terramap/ui": "workspace:*",
+    "idn-area-data": "^4.0.1",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -1,15 +1,23 @@
 import { defineConfig } from 'wxt';
+import { existsSync } from 'node:fs';
+
+const chromeBinary = [
+  process.env.CHROME_PATH,
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+  '/opt/thorium-browser-avx2/thorium',
+].find((path): path is string => Boolean(path && existsSync(path)));
 
 // https://wxt.dev/api/config.html
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
-  // `wxt dev` auto-launches a Chromium browser. No google-chrome on this box;
-  // point it at the installed Thorium (Chromium fork). Override with CHROME_PATH.
-  runner: {
+  runner: chromeBinary ? {
     binaries: {
-      chrome: process.env.CHROME_PATH || '/opt/thorium-browser-avx2/thorium',
+      chrome: chromeBinary,
     },
-  },
+  } : undefined,
   manifest: {
     name: 'TerraMap Scraper',
     description: 'Scrape Google Maps places & Shopee/Tokopedia products to Supabase',
