@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { SaveStatus, StartAreaScrape } from '@/lib/types';
@@ -17,7 +17,94 @@ const DELAY_OPTIONS = [
   { value: 2000, label: '2000ms — Paling Aman' },
 ] as const;
 
+const STATUS_KEY = 'terramap.lastScrape';
+const PENDING_SCRAPE_KEY = 'terramap.pendingScrape';
+const DETACHED_WIDTH = 380;
+const DETACHED_HEIGHT = 620;
+
+function isDetachedPopup() {
+  return new URLSearchParams(window.location.search).get('detached') === '1';
+}
+
+function shouldAutostart() {
+  return new URLSearchParams(window.location.search).get('autostart') === '1';
+}
+
+interface PersistedStatus {
+  state: 'running' | 'success' | 'error';
+  step?: string;
+  message: string;
+  inserted?: number;
+  sessionId?: string;
+  hint?: string;
+  timestamp: number;
+}
+
+interface PendingScrape {
+  businessQuery: string;
+  locationQuery: string;
+  maxResults: number;
+  scrollDelayMs: number;
+  geofenceEnabled: boolean;
+  selectedProvinsi: string;
+  selectedKabupaten: string;
+  selectedKecamatan: string;
+}
+
+const STEP_LABEL: Record<string, string> = {
+  auth: '1/5 Cek sesi',
+  folder: '2/5 Buat folder',
+  tab: '3/5 Buka Maps',
+  load: '3/5 Tunggu Maps',
+  scrape: '4/5 Scrape POI',
+  save: '5/5 Simpan DB',
+};
+
+function StatusBanner({ status, onDismiss }: { status: PersistedStatus; onDismiss: () => void }) {
+  const color =
+    status.state === 'success'
+      ? 'bg-green-50 border-green-200 text-green-800'
+      : status.state === 'error'
+      ? 'bg-red-50 border-red-200 text-red-800'
+      : 'bg-blue-50 border-blue-200 text-blue-800';
+  const icon = status.state === 'success' ? '✓' : status.state === 'error' ? '⚠' : '⏳';
+  return (
+    <div className={`rounded border px-2.5 py-2 text-xs ${color}`}>
+      <div className="flex items-start gap-2">
+        <span className={status.state === 'running' ? 'animate-pulse' : ''}>{icon}</span>
+        <div className="flex-1 space-y-1">
+          {status.step && (
+            <div className="text-[10px] font-medium opacity-70">
+              {STEP_LABEL[status.step] ?? status.step}
+            </div>
+          )}
+          <div className="font-medium leading-snug">{status.message}</div>
+          {status.hint && (
+            <div className="rounded bg-white/60 px-1.5 py-1 text-[11px] leading-snug">
+              💡 {status.hint}
+            </div>
+          )}
+          {status.state === 'success' && status.inserted != null && (
+            <div className="text-[10px] opacity-70">Tersimpan: {status.inserted} POI</div>
+          )}
+        </div>
+        {status.state !== 'running' && (
+          <button
+            className="text-xs opacity-60 hover:opacity-100"
+            onClick={onDismiss}
+            title="Tutup"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const detached = useMemo(() => isDetachedPopup(), []);
+  const autoStartedRef = useRef(false);
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,6 +125,32 @@ export default function App() {
 
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+  const [persistedStatus, setPersistedStatus] = useState<PersistedStatus | null>(null);
+
+  // Read persisted scrape status on mount + subscribe to live updates from
+  // background. The popup window closes whenever the user clicks away, so
+  // single-shot sendResponse status is unreliable for multi-minute scrapes.
+  useEffect(() => {
+    chrome.storage.local.get(STATUS_KEY).then((stored) => {
+      const s = stored[STATUS_KEY] as PersistedStatus | undefined;
+      if (s) setPersistedStatus(s);
+    });
+    const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area !== 'local' || !changes[STATUS_KEY]) return;
+      const next = changes[STATUS_KEY].newValue as PersistedStatus | undefined;
+      setPersistedStatus(next ?? null);
+      if (next && (next.state === 'success' || next.state === 'error')) {
+        setBusy(false);
+      }
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, []);
+
+  function dismissStatus() {
+    chrome.storage.local.remove(STATUS_KEY).catch(() => {});
+    setPersistedStatus(null);
+  }
 
   const provinces = useMemo(() => getProvinces(), []);
   const regencies = useMemo(
@@ -54,6 +167,27 @@ export default function App() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!detached || !shouldAutostart() || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    chrome.storage.local.get(PENDING_SCRAPE_KEY).then((stored) => {
+      const pending = stored[PENDING_SCRAPE_KEY] as PendingScrape | undefined;
+      if (!pending) return;
+      setBusinessQuery(pending.businessQuery);
+      setLocationQuery(pending.locationQuery);
+      setMaxResults(pending.maxResults);
+      setScrollDelayMs(pending.scrollDelayMs);
+      setGeofenceEnabled(pending.geofenceEnabled);
+      setSelectedProvinsi(pending.selectedProvinsi);
+      setSelectedKabupaten(pending.selectedKabupaten);
+      setSelectedKecamatan(pending.selectedKecamatan);
+      chrome.storage.local.remove(PENDING_SCRAPE_KEY).catch(() => {});
+      scrape(pending).catch((error: unknown) => {
+        setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    });
+  }, [detached]);
 
   function handleProvinsiChange(id: string) {
     setSelectedProvinsi(id);
@@ -89,23 +223,50 @@ export default function App() {
     }
   }
 
-  async function scrape() {
-    if (!businessQuery.trim()) {
+  async function scrape(input?: PendingScrape) {
+    const scrapeInput: PendingScrape = input ?? {
+      businessQuery,
+      locationQuery,
+      maxResults,
+      scrollDelayMs,
+      geofenceEnabled,
+      selectedProvinsi,
+      selectedKabupaten,
+      selectedKecamatan,
+    };
+
+    if (!scrapeInput.businessQuery.trim()) {
       setStatus('Nama bisnis/kategori kosong.');
       return;
     }
-    if (!locationQuery.trim() && !geofenceEnabled) {
+    if (!scrapeInput.locationQuery.trim() && !scrapeInput.geofenceEnabled) {
       setStatus('Lokasi kosong.');
       return;
     }
-    if (geofenceEnabled && !selectedKecamatan) {
+    if (scrapeInput.geofenceEnabled && !scrapeInput.selectedKecamatan) {
       setStatus('Pilih kecamatan untuk filter geofence.');
       return;
     }
+    if (!detached) {
+      await chrome.storage.local.set({ [PENDING_SCRAPE_KEY]: scrapeInput });
+      await chrome.windows.create({
+        url: chrome.runtime.getURL('/popup.html?detached=1&autostart=1'),
+        type: 'popup',
+        width: DETACHED_WIDTH,
+        height: DETACHED_HEIGHT,
+      });
+      return;
+    }
 
-    const provinsiName = provinces.find((p) => p.id === selectedProvinsi)?.name ?? '';
-    const kabupatenName = regencies.find((r) => r.id === selectedKabupaten)?.name ?? '';
-    const kecamatanName = districts.find((d) => d.id === selectedKecamatan)?.name ?? '';
+    const inputRegencies = scrapeInput.selectedProvinsi
+      ? getRegenciesByProvince(scrapeInput.selectedProvinsi)
+      : [];
+    const inputDistricts = scrapeInput.selectedKabupaten
+      ? getDistrictsByRegency(scrapeInput.selectedKabupaten)
+      : [];
+    const provinsiName = provinces.find((p) => p.id === scrapeInput.selectedProvinsi)?.name ?? '';
+    const kabupatenName = inputRegencies.find((r) => r.id === scrapeInput.selectedKabupaten)?.name ?? '';
+    const kecamatanName = inputDistricts.find((d) => d.id === scrapeInput.selectedKecamatan)?.name ?? '';
 
     setBusy(true);
     setStatus('Membuka Google Maps + scraping…');
@@ -113,11 +274,11 @@ export default function App() {
       const msg: StartAreaScrape = {
         type: 'START_AREA_SCRAPE',
         params: {
-          businessQuery: businessQuery.trim(),
-          locationQuery: locationQuery.trim(),
-          maxResults,
-          scrollDelayMs,
-          geofence: geofenceEnabled
+          businessQuery: scrapeInput.businessQuery.trim(),
+          locationQuery: scrapeInput.locationQuery.trim(),
+          maxResults: scrapeInput.maxResults,
+          scrollDelayMs: scrapeInput.scrollDelayMs,
+          geofence: scrapeInput.geofenceEnabled
             ? { enabled: true, provinsi: provinsiName, kabupaten: kabupatenName, kecamatan: kecamatanName }
             : undefined,
         },
@@ -132,8 +293,8 @@ export default function App() {
       } else {
         setStatus(`Error: ${res.error}`);
       }
-    } catch (e: any) {
-      setStatus(`Error: ${e?.message ?? e}`);
+    } catch (e: unknown) {
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -280,13 +441,17 @@ export default function App() {
 
       <button
         className="w-full bg-green-600 disabled:bg-gray-400 text-white rounded py-1.5 text-sm"
-        onClick={scrape}
+        onClick={() => scrape()}
         disabled={busy}
       >
         {busy ? 'Scraping…' : 'Scrape'}
       </button>
 
-      {status && <p className="text-xs whitespace-pre-wrap">{status}</p>}
+      {persistedStatus ? (
+        <StatusBanner status={persistedStatus} onDismiss={dismissStatus} />
+      ) : (
+        status && <p className="text-xs whitespace-pre-wrap text-gray-600">{status}</p>
+      )}
     </div>
   );
 }

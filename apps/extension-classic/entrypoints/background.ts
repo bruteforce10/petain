@@ -21,6 +21,60 @@ import type {
  */
 const GMAPS_URL_RE = /^https?:\/\/(www\.)?google\.[^/]+\/maps(\/|$|\?)|^https?:\/\/maps\.google\.[^/]+\//;
 
+// Persist scrape progress to chrome.storage.local. The popup closes whenever
+// the user clicks away (e.g. to watch Maps scroll), so single-shot sendResponse
+// status gets lost. Popup re-reads STATUS_KEY on mount and subscribes via
+// chrome.storage.onChanged for live updates.
+const STATUS_KEY = 'terramap.lastScrape';
+type ScrapeState = 'running' | 'success' | 'error';
+interface PersistedStatus {
+  state: ScrapeState;
+  step?: string;
+  message: string;
+  inserted?: number;
+  sessionId?: string;
+  hint?: string;
+  timestamp: number;
+}
+async function setStatus(s: Omit<PersistedStatus, 'timestamp'>): Promise<void> {
+  await chrome.storage.local
+    .set({ [STATUS_KEY]: { ...s, timestamp: Date.now() } satisfies PersistedStatus })
+    .catch(() => {});
+}
+
+/** Map raw scraper errors to a friendlier hint shown in the popup banner. */
+function diagnose(err: string): string | undefined {
+  const e = err.toLowerCase();
+  if (e.includes('timeout waiting for area_scrape_result')) {
+    return 'Scrape timeout (3 menit). Buka popup lagi — extension akan auto-resume jika scrape masih berjalan. Jika tetap gagal, kurangi "Max hasil" atau pakai query yang lebih spesifik.';
+  }
+  if (e.includes('halaman detail maps terbuka tapi data tempat gagal dibaca')) {
+    return 'Maps berhasil buka halaman tempat tapi struktur halamannya berubah. Selector Maps perlu diupdate — laporkan ke developer.';
+  }
+  if (e.includes('search input') && e.includes('not found')) {
+    return 'Kotak pencarian Maps tidak muncul. Tunggu sebentar lalu coba scrape lagi (Maps mungkin masih loading).';
+  }
+  if (e.includes('neither results feed nor place detail')) {
+    return 'Maps tidak merespon dalam 20 detik. Cek koneksi internet, atau coba query yang berbeda.';
+  }
+  if (e.includes('tidak ada yang cocok filter')) {
+    return 'Filter kecamatan menolak semua hasil. Bisnis yang dicari mungkin ada di kecamatan lain — coba nonaktifkan filter atau ganti kecamatan.';
+  }
+  if (e.includes('maps menampilkan feed hasil pencarian tapi 0 tempat terbaca')) {
+    return 'Selector Maps mungkin sudah berubah (Maps update DOM-nya). Laporkan ke developer untuk fix selector.';
+  }
+  if (e.includes('not logged in')) {
+    return 'Sesi login habis. Klik "logout" lalu masuk lagi.';
+  }
+  if (e.includes('tab open')) {
+    return 'Tidak bisa buka tab Google Maps. Cek apakah ada extension blocker atau popup blocker yang aktif.';
+  }
+  if (e.includes('could not create folder')) {
+    return 'Database tidak bisa menyimpan folder scrape. Cek koneksi internet atau tunggu sebentar.';
+  }
+  return undefined;
+}
+
 export default defineBackground(() => {
   console.log('[terramap/bg] background script booted');
 
@@ -40,9 +94,12 @@ export default defineBackground(() => {
 });
 
 async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
+  await setStatus({ state: 'running', step: 'auth', message: 'Memeriksa sesi login…' });
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData.user) {
-    return { type: 'SAVE_STATUS', ok: false, inserted: 0, error: 'Not logged in' };
+    const errMsg = 'Not logged in';
+    await setStatus({ state: 'error', message: errMsg, hint: diagnose(errMsg) });
+    return { type: 'SAVE_STATUS', ok: false, inserted: 0, error: errMsg };
   }
   const userId = userData.user.id;
   const sessionId = nextSessionId();
@@ -57,6 +114,7 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
 
   // Spec: every scrape click creates a new scrape_runs row. If creation fails,
   // bail BEFORE scraping — otherwise results would be unfiled.
+  await setStatus({ state: 'running', step: 'folder', message: 'Membuat folder scrape…', sessionId });
   let runId: string;
   try {
     const run = await createScrapeRun(supabase, {
@@ -67,17 +125,20 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
     console.log('[terramap/bg] scrape_run created:', runId);
   } catch (e: any) {
     console.log('[terramap/bg] createScrapeRun failed:', e);
+    const errMsg = `Could not create folder: ${e?.message ?? e}`;
+    await setStatus({ state: 'error', message: errMsg, hint: diagnose(errMsg), sessionId });
     return {
       type: 'SAVE_STATUS',
       ok: false,
       inserted: 0,
-      error: `Could not create folder: ${e?.message ?? e}`,
+      error: errMsg,
     };
   }
 
   const alarmName = `scrape-${sessionId}`;
   await chrome.alarms.create(alarmName, { periodInMinutes: 0.4 });
 
+  await setStatus({ state: 'running', step: 'tab', message: 'Membuka tab Google Maps…', sessionId });
   let tab: chrome.tabs.Tab;
   try {
     const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -95,15 +156,24 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
     await chrome.alarms.clear(alarmName);
     const errMsg = `tab open: ${e?.message ?? e}`;
     await failScrapeRun(supabase, runId, errMsg).catch(() => {});
+    await setStatus({ state: 'error', message: errMsg, hint: diagnose(errMsg), sessionId });
     return { type: 'SAVE_STATUS', ok: false, inserted: 0, error: errMsg };
   }
   const tabId = tab.id!;
 
   try {
+    await setStatus({ state: 'running', step: 'load', message: 'Menunggu Maps siap…', sessionId });
     await waitForTabComplete(tabId, 20_000);
     console.log('[terramap/bg] tab', tabId, 'reported complete');
 
     const runMsg: RunAreaScrape = { type: 'RUN_AREA_SCRAPE', params: msg.params, sessionId };
+
+    await setStatus({
+      state: 'running',
+      step: 'scrape',
+      message: 'Scraping POI di Google Maps… (jangan tutup tab Maps)',
+      sessionId,
+    });
 
     // Register push listener BEFORE sending the run message to avoid race.
     const resultPromise = waitForResultPush(sessionId, 180_000);
@@ -130,8 +200,9 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       const err = (result as any).error;
       const errMsg =
         err ??
-        'Scrape returned 0 places (selectors stale, or none inside radius). Check Maps tab console.';
+        'Scrape selesai tapi 0 tempat terbaca. Kemungkinan: filter terlalu strict, query terlalu spesifik, atau Maps tidak menampilkan hasil. Buka tab Maps + DevTools console untuk detail.';
       await failScrapeRun(supabase, runId, errMsg).catch(() => {});
+      await setStatus({ state: 'error', message: errMsg, hint: diagnose(errMsg), sessionId });
       return {
         type: 'SAVE_STATUS',
         ok: false,
@@ -140,6 +211,12 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
         sessionId,
       };
     }
+    await setStatus({
+      state: 'running',
+      step: 'save',
+      message: `Menyimpan ${rows.length} POI ke database…`,
+      sessionId,
+    });
     console.log('[terramap/bg] inserting', rows.length, 'rows. sample:', rows[0]);
     const { error } = await supabase.from('places').insert(rows);
     if (error) {
@@ -152,11 +229,18 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       // as a known recoverable gap for a later improvement.
       console.log('[terramap/bg] completeScrapeRun failed:', e);
     });
+    await setStatus({
+      state: 'success',
+      message: `Tersimpan ${rows.length} POI`,
+      inserted: rows.length,
+      sessionId,
+    });
     return { type: 'SAVE_STATUS', ok: true, inserted: rows.length, sessionId };
   } catch (e: any) {
     console.log('[terramap/bg] handleStart caught:', e);
     const errMsg = e?.message ?? String(e);
     await failScrapeRun(supabase, runId, errMsg).catch(() => {});
+    await setStatus({ state: 'error', message: errMsg, hint: diagnose(errMsg), sessionId });
     return {
       type: 'SAVE_STATUS',
       ok: false,

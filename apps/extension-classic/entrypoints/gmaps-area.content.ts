@@ -1,5 +1,18 @@
 import { scrapeAreaOnPage } from '@terramap/scrapers/area';
-import type { AreaScrapeResult, RunAreaScrape } from '@/lib/types';
+import type { AreaScrapeParams, AreaScrapeResult, RunAreaScrape } from '@/lib/types';
+
+// Maps redirects to /maps/place/... when a search matches one POI (e.g.
+// "Gacoan Pondok Aren"). The redirect is sometimes a full reload that tears
+// down the content script mid-scrape and orphans the runAndPush promise.
+// Persist {sessionId, params, startedAt} so the reinjected script can resume.
+const STATE_KEY = 'terramap.activeScrape';
+const STALE_MS = 5 * 60_000;
+
+interface ActiveScrape {
+  sessionId: string;
+  params: AreaScrapeParams;
+  startedAt: number;
+}
 
 export default defineContentScript({
   matches: ['https://www.google.com/maps/*', 'https://maps.google.com/*'],
@@ -8,13 +21,55 @@ export default defineContentScript({
     chrome.runtime.onMessage.addListener((msg: RunAreaScrape) => {
       if (msg?.type !== 'RUN_AREA_SCRAPE') return;
       console.log('[terramap/content] RUN_AREA_SCRAPE received, session', msg.sessionId);
-      // Fire-and-forget: don't hold the channel open with `return true`.
-      // Push the result back via runtime.sendMessage when scrape finishes —
-      // MV3 closes long-lived sendResponse channels unpredictably.
-      runAndPush(msg);
+      void startScrape(msg);
     });
+    await maybeResume();
   },
 });
+
+async function startScrape(msg: RunAreaScrape): Promise<void> {
+  const state: ActiveScrape = {
+    sessionId: msg.sessionId,
+    params: msg.params,
+    startedAt: Date.now(),
+  };
+  try {
+    await chrome.storage.session.set({ [STATE_KEY]: state });
+  } catch (e) {
+    console.log('[terramap/content] storage.session.set failed:', e);
+  }
+  await runAndPush(msg);
+}
+
+async function maybeResume(): Promise<void> {
+  let active: ActiveScrape | undefined;
+  try {
+    const stored = await chrome.storage.session.get(STATE_KEY);
+    active = stored[STATE_KEY] as ActiveScrape | undefined;
+  } catch (e) {
+    console.log('[terramap/content] storage.session.get failed:', e);
+    return;
+  }
+  if (!active) return;
+
+  if (Date.now() - active.startedAt > STALE_MS) {
+    console.log('[terramap/content] clearing stale scrape state, session', active.sessionId);
+    await chrome.storage.session.remove(STATE_KEY).catch(() => {});
+    return;
+  }
+
+  console.log(
+    '[terramap/content] resuming scrape session',
+    active.sessionId,
+    'at',
+    location.href,
+  );
+  await runAndPush({
+    type: 'RUN_AREA_SCRAPE',
+    params: active.params,
+    sessionId: active.sessionId,
+  });
+}
 
 async function runAndPush(msg: RunAreaScrape): Promise<void> {
   try {
@@ -34,5 +89,7 @@ async function runAndPush(msg: RunAreaScrape): Promise<void> {
       places: [],
       error: e?.message ?? String(e),
     });
+  } finally {
+    await chrome.storage.session.remove(STATE_KEY).catch(() => {});
   }
 }

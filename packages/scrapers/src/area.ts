@@ -15,7 +15,13 @@ export async function scrapeAreaOnPage(
     ? `${businessQuery} ${geofence.kecamatan} ${geofence.kabupaten}`
     : `${businessQuery} ${locationQuery}`;
 
-  await searchOnMaps(query);
+  // Resumed runs (content script reinjected after Maps full-reloaded into
+  // /maps/place/) skip the search step — we're already on the target POI.
+  if (!location.pathname.startsWith('/maps/place/')) {
+    await searchOnMaps(query);
+  } else {
+    console.log('[terramap/scrape] already on /maps/place/, skipping searchOnMaps');
+  }
 
   // Maps redirects to /maps/place/ when the query strongly matches a single
   // POI (e.g. "Mie Gacoan Pondok Aren" → one specific store). Treat that as a
@@ -24,10 +30,17 @@ export async function scrapeAreaOnPage(
   if (onPlacePage) {
     console.log('[terramap/scrape] single place page detected');
     const single = await scrapeCurrentPlace();
-    if (!single) return [];
-    if (geofence?.enabled && !addressContains(single.address, geofence.kecamatan, geofence.kabupaten)) {
-      console.log('[terramap/scrape] single place filtered out by geofence:', single.address);
-      return [];
+    if (!single) {
+      throw new Error(
+        'Halaman detail Maps terbuka tapi data tempat gagal dibaca (selector h1.DUwDvf stale atau panel kosong).',
+      );
+    }
+    // Skip geofence on single-POI: the user already pinned the location in the
+    // query (e.g. "Gacoan Pondok Aren"). The filter exists to drop out-of-area
+    // hits from the multi-result feed — it would only reject the very place
+    // the user explicitly searched for.
+    if (geofence?.enabled) {
+      console.log('[terramap/scrape] single place: skipping geofence (location is in query)');
     }
     return [{ ...single, scrape_session_id: sessionId, keyword: query }];
   }
@@ -35,16 +48,31 @@ export async function scrapeAreaOnPage(
   const list = await scrapeGoogleMaps(scrollDelayMs);
   console.log('[terramap/scrape] list pass:', list.length);
 
+  if (!list.length) {
+    throw new Error(
+      `Maps menampilkan feed hasil pencarian tapi 0 tempat terbaca. Query: "${query}". Kemungkinan selector Maps berubah — laporkan ke developer.`,
+    );
+  }
+
   const limited = list.slice(0, maxResults);
   console.log('[terramap/scrape] capped to:', limited.length);
 
   const deep = await scrapeGoogleMapsDeep(limited, { limit: maxResults, delay: scrollDelayMs });
   console.log('[terramap/scrape] deep pass:', deep.length);
 
-  const filtered =
-    geofence?.enabled
-      ? deep.filter((p) => addressContains(p.address, geofence.kecamatan, geofence.kabupaten))
-      : deep;
+  if (!geofence?.enabled) {
+    return deep.map((p) => ({ ...p, scrape_session_id: sessionId, keyword: query }));
+  }
+
+  const filtered = deep.filter((p) =>
+    addressContains(p.address, geofence.kecamatan, geofence.kabupaten),
+  );
+
+  if (!filtered.length) {
+    throw new Error(
+      `Ditemukan ${deep.length} tempat tapi tidak ada yang cocok filter "${geofence.kecamatan}". Coba ganti kecamatan, atau nonaktifkan filter untuk simpan semuanya.`,
+    );
+  }
 
   return filtered.map((p) => ({ ...p, scrape_session_id: sessionId, keyword: query }));
 }

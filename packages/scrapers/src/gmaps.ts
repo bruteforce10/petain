@@ -36,12 +36,14 @@ export async function searchOnMaps(keyword: string): Promise<void> {
   // Dismiss autocomplete dropdown before Enter. Specific queries (e.g. with
   // kecamatan + kabupaten) often highlight a single POI suggestion — pressing
   // Enter while a suggestion is highlighted accepts it and Maps navigates to
-  // /maps/place/ (single page) instead of /maps/search/ (feed). Escape closes
-  // the dropdown without clearing input text.
-  input.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }),
-  );
-  await sleep(200);
+  // /maps/place/ (single page) instead of /maps/search/ (feed). Two Escapes
+  // guard against the dropdown re-opening on the next render tick.
+  for (let i = 0; i < 2; i++) {
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true }),
+    );
+    await sleep(150);
+  }
 
   // keyCode/which 13 required — Maps' handler reads the legacy keyCode, not `key`.
   for (const t of ['keydown', 'keypress', 'keyup']) {
@@ -50,11 +52,17 @@ export async function searchOnMaps(keyword: string): Promise<void> {
     );
   }
 
-  // Maps either shows the feed (list of POIs) OR redirects to /maps/place/ when
-  // the query strongly matches one POI. Both are valid scrape targets.
+  // Maps either shows the feed (list of POIs) OR redirects to /maps/place/
+  // when the query matches one POI. Both valid. Polling location.pathname
+  // catches the single-POI case earliest — URL flips to /maps/place/ before
+  // the detail panel finishes rendering h1.DUwDvf.
   const start = Date.now();
-  while (Date.now() - start < 15_000) {
-    if (document.querySelector(FEED) || document.querySelector(DETAIL_NAME)) return;
+  while (Date.now() - start < 20_000) {
+    if (
+      document.querySelector(FEED) ||
+      document.querySelector(DETAIL_NAME) ||
+      location.pathname.startsWith('/maps/place/')
+    ) return;
     await sleep(250);
   }
   throw new Error(
@@ -67,10 +75,16 @@ export async function searchOnMaps(keyword: string): Promise<void> {
  * Extract the currently-open place detail panel as a single Place. Used when
  * Maps redirected to /maps/place/ because the search query strongly matched
  * one POI — better than returning 0 results.
+ *
+ * The detail panel renders progressively after h1 appears: address, phone,
+ * hours, and rating histogram populate over the next ~1s. Waiting after the
+ * h1 hit avoids parsing a half-rendered panel that would leave most fields
+ * null. Longer timeout (12s) covers slow connections + post-reload paint.
  */
 export async function scrapeCurrentPlace(): Promise<Place | null> {
-  const h1 = (await waitForSelector(DETAIL_NAME, 5_000)) as HTMLElement | null;
+  const h1 = (await waitForSelector(DETAIL_NAME, 12_000)) as HTMLElement | null;
   if (!h1) return null;
+  await sleep(1200);
   const panel = (h1.closest('[role="main"]') ?? document.body) as Element;
   return parseDetail(panel, { name: h1.textContent?.trim() || '' } as Place);
 }
