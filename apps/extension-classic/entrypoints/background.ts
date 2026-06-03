@@ -104,6 +104,17 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   const userId = userData.user.id;
   const sessionId = nextSessionId();
   const { businessQuery, locationQuery } = msg.params;
+  const geofenceLocation = msg.params.geofence?.enabled
+    ? [
+        msg.params.geofence.kecamatan,
+        msg.params.geofence.kabupaten,
+        msg.params.geofence.provinsi,
+      ]
+        .map((term) => term.trim())
+        .filter(Boolean)
+        .join(' ')
+    : '';
+  const keyword = `${businessQuery} ${geofenceLocation || locationQuery}`.trim();
   // Coordinate URL avoids Maps' geolocation-based redirect + keeps the page in
   // a predictable "map only" state. Bare `/maps/` lets Maps interpret the next
   // search aggressively and redirect to `/maps/place/` (single POI) instead of
@@ -119,7 +130,7 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   try {
     const run = await createScrapeRun(supabase, {
       source: 'gmaps',
-      keyword: `${businessQuery} ${locationQuery}`.trim(),
+      keyword,
     });
     runId = run.id;
     console.log('[terramap/bg] scrape_run created:', runId);
@@ -138,19 +149,28 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   const alarmName = `scrape-${sessionId}`;
   await chrome.alarms.create(alarmName, { periodInMinutes: 0.4 });
 
-  await setStatus({ state: 'running', step: 'tab', message: 'Membuka tab Google Maps…', sessionId });
+  await setStatus({ state: 'running', step: 'tab', message: 'Membuka Google Maps…', sessionId });
   let tab: chrome.tabs.Tab;
+  let needsLoad = false;
   try {
     const [active] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (active?.id && active.url && GMAPS_URL_RE.test(active.url)) {
+      tab = active;
+      if (active.windowId !== undefined) {
+        await chrome.windows.update(active.windowId, { focused: true }).catch(() => {});
+      }
+      console.log('[terramap/bg] active tab already gmaps, no nav, id:', tab.id);
+    } else if (active?.id) {
       tab = await chrome.tabs.update(active.id, { url, active: true });
       if (active.windowId !== undefined) {
-        await chrome.windows.update(active.windowId, { focused: true });
+        await chrome.windows.update(active.windowId, { focused: true }).catch(() => {});
       }
-      console.log('[terramap/bg] reused existing gmaps tab, id:', tab.id);
+      needsLoad = true;
+      console.log('[terramap/bg] navigated active tab to gmaps, id:', tab.id);
     } else {
       tab = await chrome.tabs.create({ url, active: true });
-      console.log('[terramap/bg] tab created, id:', tab.id);
+      needsLoad = true;
+      console.log('[terramap/bg] no active tab, created new, id:', tab.id);
     }
   } catch (e: any) {
     await chrome.alarms.clear(alarmName);
@@ -162,9 +182,11 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   const tabId = tab.id!;
 
   try {
-    await setStatus({ state: 'running', step: 'load', message: 'Menunggu Maps siap…', sessionId });
-    await waitForTabComplete(tabId, 20_000);
-    console.log('[terramap/bg] tab', tabId, 'reported complete');
+    if (needsLoad) {
+      await setStatus({ state: 'running', step: 'load', message: 'Menunggu Maps siap…', sessionId });
+      await waitForTabComplete(tabId, 20_000);
+      console.log('[terramap/bg] tab', tabId, 'reported complete');
+    }
 
     const runMsg: RunAreaScrape = { type: 'RUN_AREA_SCRAPE', params: msg.params, sessionId };
 

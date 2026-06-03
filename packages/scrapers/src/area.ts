@@ -10,10 +10,15 @@ export async function scrapeAreaOnPage(
   params: AreaScrapeParams & { sessionId: string },
 ): Promise<Place[]> {
   const { businessQuery, locationQuery, maxResults, scrollDelayMs, geofence, sessionId } = params;
+  const geofenceTerms = geofence?.enabled
+    ? [geofence.kecamatan, geofence.kabupaten, geofence.provinsi]
+        .map((term) => term.trim())
+        .filter(Boolean)
+    : [];
+  const geofenceLocation = geofenceTerms.join(' ');
+  const hasGeofenceFilter = geofenceTerms.length > 0;
 
-  const query = geofence?.enabled
-    ? `${businessQuery} ${geofence.kecamatan} ${geofence.kabupaten}`
-    : `${businessQuery} ${locationQuery}`;
+  const query = `${businessQuery} ${geofenceLocation || locationQuery}`.trim();
 
   // Resumed runs (content script reinjected after Maps full-reloaded into
   // /maps/place/) skip the search step — we're already on the target POI.
@@ -39,7 +44,7 @@ export async function scrapeAreaOnPage(
     // query (e.g. "Gacoan Pondok Aren"). The filter exists to drop out-of-area
     // hits from the multi-result feed — it would only reject the very place
     // the user explicitly searched for.
-    if (geofence?.enabled) {
+    if (hasGeofenceFilter) {
       console.log('[terramap/scrape] single place: skipping geofence (location is in query)');
     }
     return [{ ...single, scrape_session_id: sessionId, keyword: query }];
@@ -60,17 +65,16 @@ export async function scrapeAreaOnPage(
   const deep = await scrapeGoogleMapsDeep(limited, { limit: maxResults, delay: scrollDelayMs });
   console.log('[terramap/scrape] deep pass:', deep.length);
 
-  if (!geofence?.enabled) {
+  if (!hasGeofenceFilter) {
     return deep.map((p) => ({ ...p, scrape_session_id: sessionId, keyword: query }));
   }
 
-  const filtered = deep.filter((p) =>
-    addressContains(p.address, geofence.kecamatan, geofence.kabupaten),
-  );
+  const filtered = deep.filter((p) => addressContainsAny(p.address, geofenceTerms));
 
   if (!filtered.length) {
+    const filterLabel = geofenceTerms.join(', ');
     throw new Error(
-      `Ditemukan ${deep.length} tempat tapi tidak ada yang cocok filter "${geofence.kecamatan}". Coba ganti kecamatan, atau nonaktifkan filter untuk simpan semuanya.`,
+      `Ditemukan ${deep.length} tempat tapi tidak ada yang cocok filter "${filterLabel}". Coba longgarkan filter lokasi, atau nonaktifkan filter untuk simpan semuanya.`,
     );
   }
 
@@ -82,10 +86,11 @@ export async function scrapeAreaOnPage(
  * normalization. Maps addresses often write "Kec. Pd. Aren" instead of
  * "Kecamatan Pondok Aren" — naive substring match would reject those.
  */
-function addressContains(address: string | null | undefined, ...terms: string[]): boolean {
+function addressContainsAny(address: string | null | undefined, terms: string[]): boolean {
   if (!address) return false;
   const normalized = normalizeIndoAddress(address);
-  return terms.some((t) => normalized.includes(normalizeIndoTerm(t)));
+  const normalizedTerms = terms.map(normalizeIndoTerm).filter(Boolean);
+  return normalizedTerms.some((term) => normalized.includes(term));
 }
 
 function normalizeIndoAddress(s: string): string {

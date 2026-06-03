@@ -18,8 +18,8 @@ export default defineConfig({
     },
   } : undefined,
   manifest: {
-    name: 'TerraMap Classic (Area)',
-    description: 'Pick a point + radius on a map, scrape every POI inside it',
+    name: 'Petain',
+    description: 'Riset bisnis lokal dari Google Maps — scrape kompetitor per kecamatan.',
     permissions: ['storage', 'activeTab', 'scripting', 'tabs', 'alarms'],
     host_permissions: ['https://*.google.com/*'],
   },

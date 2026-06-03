@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { SaveStatus, StartAreaScrape } from '@/lib/types';
@@ -18,17 +18,6 @@ const DELAY_OPTIONS = [
 ] as const;
 
 const STATUS_KEY = 'terramap.lastScrape';
-const PENDING_SCRAPE_KEY = 'terramap.pendingScrape';
-const DETACHED_WIDTH = 380;
-const DETACHED_HEIGHT = 620;
-
-function isDetachedPopup() {
-  return new URLSearchParams(window.location.search).get('detached') === '1';
-}
-
-function shouldAutostart() {
-  return new URLSearchParams(window.location.search).get('autostart') === '1';
-}
 
 interface PersistedStatus {
   state: 'running' | 'success' | 'error';
@@ -38,17 +27,6 @@ interface PersistedStatus {
   sessionId?: string;
   hint?: string;
   timestamp: number;
-}
-
-interface PendingScrape {
-  businessQuery: string;
-  locationQuery: string;
-  maxResults: number;
-  scrollDelayMs: number;
-  geofenceEnabled: boolean;
-  selectedProvinsi: string;
-  selectedKabupaten: string;
-  selectedKecamatan: string;
 }
 
 const STEP_LABEL: Record<string, string> = {
@@ -61,26 +39,28 @@ const STEP_LABEL: Record<string, string> = {
 };
 
 function StatusBanner({ status, onDismiss }: { status: PersistedStatus; onDismiss: () => void }) {
-  const color =
+  const palette =
     status.state === 'success'
-      ? 'bg-green-50 border-green-200 text-green-800'
+      ? 'border-[#01C07A]/30 bg-[#01C07A]/10 text-[rgb(0,55,46)]'
       : status.state === 'error'
-      ? 'bg-red-50 border-red-200 text-red-800'
-      : 'bg-blue-50 border-blue-200 text-blue-800';
+      ? 'border-red-300 bg-red-50 text-red-800'
+      : 'border-[rgb(0,55,46)]/15 bg-[rgb(238,238,228)] text-[rgb(0,55,46)]';
   const icon = status.state === 'success' ? '✓' : status.state === 'error' ? '⚠' : '⏳';
   return (
-    <div className={`rounded border px-2.5 py-2 text-xs ${color}`}>
+    <div className={`rounded-2xl border px-3 py-2.5 text-xs shadow-sm ${palette}`}>
       <div className="flex items-start gap-2">
-        <span className={status.state === 'running' ? 'animate-pulse' : ''}>{icon}</span>
+        <span className={status.state === 'running' ? 'animate-pulse text-sm' : 'text-sm'}>
+          {icon}
+        </span>
         <div className="flex-1 space-y-1">
           {status.step && (
-            <div className="text-[10px] font-medium opacity-70">
+            <div className="text-[10px] font-semibold uppercase tracking-wider opacity-70">
               {STEP_LABEL[status.step] ?? status.step}
             </div>
           )}
           <div className="font-medium leading-snug">{status.message}</div>
           {status.hint && (
-            <div className="rounded bg-white/60 px-1.5 py-1 text-[11px] leading-snug">
+            <div className="rounded-lg bg-white/70 px-2 py-1.5 text-[11px] leading-snug text-[rgb(5,87,72)]">
               💡 {status.hint}
             </div>
           )}
@@ -90,7 +70,7 @@ function StatusBanner({ status, onDismiss }: { status: PersistedStatus; onDismis
         </div>
         {status.state !== 'running' && (
           <button
-            className="text-xs opacity-60 hover:opacity-100"
+            className="text-xs opacity-50 transition hover:opacity-100"
             onClick={onDismiss}
             title="Tutup"
           >
@@ -102,9 +82,11 @@ function StatusBanner({ status, onDismiss }: { status: PersistedStatus; onDismis
   );
 }
 
+function Logo({ className = 'h-7 w-auto' }: { className?: string }) {
+  return <img src={chrome.runtime.getURL('/logo.svg')} alt="Petain" className={className} />;
+}
+
 export default function App() {
-  const detached = useMemo(() => isDetachedPopup(), []);
-  const autoStartedRef = useRef(false);
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -127,13 +109,13 @@ export default function App() {
   const [status, setStatus] = useState('');
   const [persistedStatus, setPersistedStatus] = useState<PersistedStatus | null>(null);
 
-  // Read persisted scrape status on mount + subscribe to live updates from
-  // background. The popup window closes whenever the user clicks away, so
-  // single-shot sendResponse status is unreliable for multi-minute scrapes.
   useEffect(() => {
     chrome.storage.local.get(STATUS_KEY).then((stored) => {
       const s = stored[STATUS_KEY] as PersistedStatus | undefined;
-      if (s) setPersistedStatus(s);
+      if (s) {
+        setPersistedStatus(s);
+        if (s.state === 'running') setBusy(true);
+      }
     });
     const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
       if (area !== 'local' || !changes[STATUS_KEY]) return;
@@ -141,6 +123,8 @@ export default function App() {
       setPersistedStatus(next ?? null);
       if (next && (next.state === 'success' || next.state === 'error')) {
         setBusy(false);
+      } else if (next?.state === 'running') {
+        setBusy(true);
       }
     };
     chrome.storage.onChanged.addListener(listener);
@@ -168,27 +152,6 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!detached || !shouldAutostart() || autoStartedRef.current) return;
-    autoStartedRef.current = true;
-    chrome.storage.local.get(PENDING_SCRAPE_KEY).then((stored) => {
-      const pending = stored[PENDING_SCRAPE_KEY] as PendingScrape | undefined;
-      if (!pending) return;
-      setBusinessQuery(pending.businessQuery);
-      setLocationQuery(pending.locationQuery);
-      setMaxResults(pending.maxResults);
-      setScrollDelayMs(pending.scrollDelayMs);
-      setGeofenceEnabled(pending.geofenceEnabled);
-      setSelectedProvinsi(pending.selectedProvinsi);
-      setSelectedKabupaten(pending.selectedKabupaten);
-      setSelectedKecamatan(pending.selectedKecamatan);
-      chrome.storage.local.remove(PENDING_SCRAPE_KEY).catch(() => {});
-      scrape(pending).catch((error: unknown) => {
-        setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
-      });
-    });
-  }, [detached]);
-
   function handleProvinsiChange(id: string) {
     setSelectedProvinsi(id);
     setSelectedKabupaten('');
@@ -211,7 +174,7 @@ export default function App() {
         if (error) {
           setAuthErr(error.message);
         } else if (!data.session) {
-          setAuthMsg('Account created. Check your email to confirm, then log in.');
+          setAuthMsg('Akun dibuat. Cek email untuk konfirmasi, lalu masuk.');
           setMode('login');
         }
       } else {
@@ -223,69 +186,45 @@ export default function App() {
     }
   }
 
-  async function scrape(input?: PendingScrape) {
-    const scrapeInput: PendingScrape = input ?? {
-      businessQuery,
-      locationQuery,
-      maxResults,
-      scrollDelayMs,
-      geofenceEnabled,
-      selectedProvinsi,
-      selectedKabupaten,
-      selectedKecamatan,
-    };
-
-    if (!scrapeInput.businessQuery.trim()) {
+  async function scrape() {
+    if (!businessQuery.trim()) {
       setStatus('Nama bisnis/kategori kosong.');
       return;
     }
-    if (!scrapeInput.locationQuery.trim() && !scrapeInput.geofenceEnabled) {
+    if (!locationQuery.trim() && !geofenceEnabled) {
       setStatus('Lokasi kosong.');
       return;
     }
-    if (scrapeInput.geofenceEnabled && !scrapeInput.selectedKecamatan) {
-      setStatus('Pilih kecamatan untuk filter geofence.');
-      return;
-    }
-    if (!detached) {
-      await chrome.storage.local.set({ [PENDING_SCRAPE_KEY]: scrapeInput });
-      await chrome.windows.create({
-        url: chrome.runtime.getURL('/popup.html?detached=1&autostart=1'),
-        type: 'popup',
-        width: DETACHED_WIDTH,
-        height: DETACHED_HEIGHT,
-      });
-      return;
-    }
 
-    const inputRegencies = scrapeInput.selectedProvinsi
-      ? getRegenciesByProvince(scrapeInput.selectedProvinsi)
-      : [];
-    const inputDistricts = scrapeInput.selectedKabupaten
-      ? getDistrictsByRegency(scrapeInput.selectedKabupaten)
-      : [];
-    const provinsiName = provinces.find((p) => p.id === scrapeInput.selectedProvinsi)?.name ?? '';
-    const kabupatenName = inputRegencies.find((r) => r.id === scrapeInput.selectedKabupaten)?.name ?? '';
-    const kecamatanName = inputDistricts.find((d) => d.id === scrapeInput.selectedKecamatan)?.name ?? '';
+    const provinsiName = provinces.find((p) => p.id === selectedProvinsi)?.name ?? '';
+    const kabupatenName = regencies.find((r) => r.id === selectedKabupaten)?.name ?? '';
+    const kecamatanName = districts.find((d) => d.id === selectedKecamatan)?.name ?? '';
+    const hasGeofenceTerms = Boolean(provinsiName || kabupatenName || kecamatanName);
 
     setBusy(true);
-    setStatus('Membuka Google Maps + scraping…');
+    setStatus('');
     try {
       const msg: StartAreaScrape = {
         type: 'START_AREA_SCRAPE',
         params: {
-          businessQuery: scrapeInput.businessQuery.trim(),
-          locationQuery: scrapeInput.locationQuery.trim(),
-          maxResults: scrapeInput.maxResults,
-          scrollDelayMs: scrapeInput.scrollDelayMs,
-          geofence: scrapeInput.geofenceEnabled
-            ? { enabled: true, provinsi: provinsiName, kabupaten: kabupatenName, kecamatan: kecamatanName }
-            : undefined,
+          businessQuery: businessQuery.trim(),
+          locationQuery: locationQuery.trim(),
+          maxResults,
+          scrollDelayMs,
+          geofence:
+            geofenceEnabled && hasGeofenceTerms
+              ? {
+                  enabled: true,
+                  provinsi: provinsiName,
+                  kabupaten: kabupatenName,
+                  kecamatan: kecamatanName,
+                }
+              : undefined,
         },
       };
       const res = (await chrome.runtime.sendMessage(msg)) as SaveStatus | undefined;
       if (!res) {
-        setStatus('Error: no response from background (check service worker DevTools).');
+        setStatus('Error: tidak ada respon dari background.');
         return;
       }
       if (res.ok) {
@@ -302,156 +241,227 @@ export default function App() {
 
   if (!session) {
     return (
-      <div className="p-4 space-y-3">
-        <h1 className="text-lg font-bold">TerraMap Classic</h1>
-        <p className="text-xs text-gray-500">Scrape Google Maps tanpa AI</p>
-        <form onSubmit={submitAuth} className="space-y-2">
-          <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            type="email" placeholder="email" value={email}
-            onChange={(e) => setEmail(e.target.value)} required
-          />
-          <input
-            className="w-full border rounded px-2 py-1 text-sm"
-            type="password" placeholder="password" value={password}
-            minLength={6}
-            onChange={(e) => setPassword(e.target.value)} required
-          />
+      <div className="bg-[rgb(250,250,240)] text-[rgb(0,55,46)]">
+        <div className="space-y-4 p-5">
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <Logo className="h-8 w-auto" />
+          </div>
+          <p className="text-center text-xs text-[rgb(5,87,72)]/70">
+            Scrape Google Maps untuk riset pasar lokal.
+          </p>
+          <form onSubmit={submitAuth} className="space-y-2.5">
+            <input
+              className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:ring-2 focus:ring-[#01C07A]/20"
+              type="email"
+              placeholder="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <input
+              className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:ring-2 focus:ring-[#01C07A]/20"
+              type="password"
+              placeholder="password"
+              value={password}
+              minLength={6}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              className="w-full rounded-full bg-[rgb(0,55,46)] py-2.5 text-sm font-semibold text-[rgb(250,250,240)] shadow-sm shadow-[rgb(0,55,46)]/20 transition hover:-translate-y-0.5 hover:shadow-md disabled:translate-y-0 disabled:bg-[rgb(0,55,46)]/40 disabled:shadow-none"
+              type="submit"
+              disabled={authBusy}
+            >
+              {authBusy ? 'Memproses…' : mode === 'signup' ? 'Daftar' : 'Masuk'}
+            </button>
+            {authErr && <p className="text-xs text-red-600">{authErr}</p>}
+            {authMsg && <p className="text-xs text-[rgb(5,87,72)]">{authMsg}</p>}
+          </form>
           <button
-            className="w-full bg-blue-600 disabled:bg-gray-400 text-white rounded py-1 text-sm"
-            type="submit" disabled={authBusy}
+            className="block w-full text-center text-xs text-[rgb(5,87,72)] underline-offset-2 transition hover:underline"
+            onClick={() => {
+              setMode(mode === 'signup' ? 'login' : 'signup');
+              setAuthErr('');
+              setAuthMsg('');
+            }}
           >
-            {authBusy ? 'Working…' : mode === 'signup' ? 'Daftar' : 'Masuk'}
+            {mode === 'signup' ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
           </button>
-          {authErr && <p className="text-red-600 text-xs">{authErr}</p>}
-          {authMsg && <p className="text-green-600 text-xs">{authMsg}</p>}
-        </form>
-        <button
-          className="text-xs text-blue-600 underline"
-          onClick={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setAuthErr(''); setAuthMsg(''); }}
-        >
-          {mode === 'signup' ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
-        </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-3 space-y-3">
-      <div className="flex justify-between items-center">
-        <h1 className="text-base font-bold">TerraMap Classic</h1>
-        <button className="text-xs text-gray-500 underline" onClick={() => supabase.auth.signOut()}>
-          logout
-        </button>
-      </div>
-
-      <div className="space-y-2">
-        <input
-          className="w-full border rounded px-2 py-1 text-sm"
-          placeholder="Nama bisnis / kategori (contoh: coffee shop)"
-          value={businessQuery}
-          onChange={(e) => setBusinessQuery(e.target.value)}
-        />
-        <input
-          className="w-full border rounded px-2 py-1 text-sm"
-          placeholder="Lokasi (contoh: Bandung Kota)"
-          value={locationQuery}
-          onChange={(e) => setLocationQuery(e.target.value)}
-          disabled={geofenceEnabled}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <label className="block text-xs text-gray-600">
-          Max hasil
-          <select
-            className="mt-0.5 w-full border rounded px-1 py-1 text-sm"
-            value={maxResults}
-            onChange={(e) => setMaxResults(Number(e.target.value))}
+    <div className="bg-[rgb(250,250,240)] text-[rgb(0,55,46)]">
+      <div className="space-y-3 p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <Logo className="h-7 w-auto" />
+          <button
+            className="rounded-full border border-[rgb(0,55,46)]/15 px-2.5 py-1 text-[11px] font-medium text-[rgb(5,87,72)] transition hover:bg-[rgb(0,55,46)]/5"
+            onClick={() => supabase.auth.signOut()}
           >
-            {MAX_RESULTS_OPTIONS.map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-xs text-gray-600">
-          Scroll delay
-          <select
-            className="mt-0.5 w-full border rounded px-1 py-1 text-sm"
-            value={scrollDelayMs}
-            onChange={(e) => setScrollDelayMs(Number(e.target.value))}
-          >
-            {DELAY_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <p className="text-[10px] text-gray-400">*delay tinggi = aman dari limit</p>
+            Keluar
+          </button>
+        </div>
 
-      <div className="border rounded p-2 space-y-2">
-        <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-          <input
-            type="checkbox"
-            checked={geofenceEnabled}
-            onChange={(e) => setGeofenceEnabled(e.target.checked)}
-          />
-          Aktifkan filter — hanya tampilkan bisnis di kecamatan
-        </label>
+        {/* Query card */}
+        <div className="space-y-2 rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+              Jenis usaha
+            </span>
+            <input
+              className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+              placeholder="contoh: coffee shop"
+              value={businessQuery}
+              onChange={(e) => setBusinessQuery(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+              Lokasi
+            </span>
+            <input
+              className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
+              placeholder="contoh: Bandung Kota"
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              disabled={geofenceEnabled}
+            />
+          </label>
+        </div>
 
-        {geofenceEnabled && (
-          <div className="space-y-1.5">
-            <select
-              className="w-full border rounded px-2 py-1 text-xs"
-              value={selectedProvinsi}
-              onChange={(e) => handleProvinsiChange(e.target.value)}
-            >
-              <option value="">— Pilih Provinsi —</option>
-              {provinces.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-
-            <select
-              className="w-full border rounded px-2 py-1 text-xs"
-              value={selectedKabupaten}
-              onChange={(e) => handleKabupatenChange(e.target.value)}
-              disabled={!selectedProvinsi}
-            >
-              <option value="">— Pilih Kabupaten / Kota —</option>
-              {regencies.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-
-            <select
-              className="w-full border rounded px-2 py-1 text-xs"
-              value={selectedKecamatan}
-              onChange={(e) => setSelectedKecamatan(e.target.value)}
-              disabled={!selectedKabupaten}
-            >
-              <option value="">— Pilih Kecamatan —</option>
-              {districts.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+        {/* Settings card */}
+        <div className="space-y-2 rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+                Max hasil
+              </span>
+              <select
+                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+                value={maxResults}
+                onChange={(e) => setMaxResults(Number(e.target.value))}
+              >
+                {MAX_RESULTS_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+                Delay scroll
+              </span>
+              <select
+                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+                value={scrollDelayMs}
+                onChange={(e) => setScrollDelayMs(Number(e.target.value))}
+              >
+                {DELAY_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
+          <p className="text-[10px] text-[rgb(5,87,72)]/60">
+            💡 Delay tinggi = aman dari rate limit Google Maps
+          </p>
+        </div>
+
+        {/* Geofence card */}
+        <div className="rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold">
+            <input
+              type="checkbox"
+              checked={geofenceEnabled}
+              onChange={(e) => setGeofenceEnabled(e.target.checked)}
+              className="h-4 w-4 cursor-pointer accent-[#01C07A]"
+            />
+            <span>Filter per kecamatan</span>
+            <span className="ml-auto rounded-full bg-[rgb(238,238,228)] px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[rgb(5,87,72)]">
+              Opsional
+            </span>
+          </label>
+
+          {geofenceEnabled && (
+            <div className="mt-3 space-y-2">
+              <p className="text-[10px] leading-snug text-[rgb(5,87,72)]/70">
+                Field yang diisi akan dipakai untuk mempersempit pencarian. Boleh kosong sebagian.
+              </p>
+              <select
+                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+                value={selectedProvinsi}
+                onChange={(e) => handleProvinsiChange(e.target.value)}
+              >
+                <option value="">— Pilih Provinsi —</option>
+                {provinces.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
+                value={selectedKabupaten}
+                onChange={(e) => handleKabupatenChange(e.target.value)}
+                disabled={!selectedProvinsi}
+              >
+                <option value="">— Pilih Kabupaten / Kota —</option>
+                {regencies.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
+                value={selectedKecamatan}
+                onChange={(e) => setSelectedKecamatan(e.target.value)}
+                disabled={!selectedKabupaten}
+              >
+                <option value="">— Pilih Kecamatan —</option>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* CTA */}
+        <button
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-[rgb(0,55,46)] py-3 text-sm font-semibold text-[rgb(250,250,240)] shadow-md shadow-[rgb(0,55,46)]/25 transition hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:bg-[rgb(0,55,46)]/40 disabled:shadow-none"
+          onClick={() => scrape()}
+          disabled={busy}
+        >
+          {busy ? (
+            <>
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[rgb(250,250,240)]/30 border-t-[rgb(250,250,240)]" />
+              Scraping…
+            </>
+          ) : (
+            <>🚀 Mulai Scrape</>
+          )}
+        </button>
+
+        {persistedStatus ? (
+          <StatusBanner status={persistedStatus} onDismiss={dismissStatus} />
+        ) : (
+          status && (
+            <p className="rounded-xl bg-[rgb(238,238,228)] px-3 py-2 text-xs leading-snug text-[rgb(5,87,72)] whitespace-pre-wrap">
+              {status}
+            </p>
+          )
         )}
       </div>
-
-      <button
-        className="w-full bg-green-600 disabled:bg-gray-400 text-white rounded py-1.5 text-sm"
-        onClick={() => scrape()}
-        disabled={busy}
-      >
-        {busy ? 'Scraping…' : 'Scrape'}
-      </button>
-
-      {persistedStatus ? (
-        <StatusBanner status={persistedStatus} onDismiss={dismissStatus} />
-      ) : (
-        status && <p className="text-xs whitespace-pre-wrap text-gray-600">{status}</p>
-      )}
     </div>
   );
 }
