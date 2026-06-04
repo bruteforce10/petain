@@ -22,5 +22,11 @@ export default defineConfig({
     description: 'Riset bisnis lokal dari Google Maps — scrape kompetitor per kecamatan.',
     permissions: ['storage', 'activeTab', 'scripting', 'tabs', 'alarms'],
     host_permissions: ['https://*.google.com/*'],
+    web_accessible_resources: [
+      {
+        resources: ['popup.html', 'logo.svg'],
+        matches: ['https://*.google.com/*'],
+      },
+    ],
   },
 });

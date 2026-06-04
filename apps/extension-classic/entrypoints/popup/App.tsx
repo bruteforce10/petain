@@ -306,6 +306,36 @@ export default function App() {
           </button>
         </div>
 
+        {/* User Info */}
+        <div className="flex items-center justify-between rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/70">
+              Pengguna
+            </span>
+            <span 
+              className="text-xs font-medium text-[rgb(0,55,46)] truncate max-w-[150px]" 
+              title={session.user.email}
+            >
+              {session.user.email}
+            </span>
+          </div>
+          
+          <div className="flex flex-col items-end text-right">
+             <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/70">
+               Masa Aktif
+             </span>
+             {(() => {
+               const dummyDaysLeft = 6;
+               const isExpiringSoon = dummyDaysLeft < 10;
+               return (
+                 <span className={`text-[11px] font-bold ${isExpiringSoon ? 'text-red-500' : 'text-[#01C07A]'}`}>
+                   Sisa {dummyDaysLeft} Hari
+                 </span>
+               );
+             })()}
+          </div>
+        </div>
+
         {/* Query card */}
         <div className="space-y-2 rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
           <label className="block">
