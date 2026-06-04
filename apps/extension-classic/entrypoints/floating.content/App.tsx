@@ -33,8 +33,13 @@ export default function App() {
     
     // Listen for storage changes
     const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-      if (area === 'local' && changes[STATUS_KEY]) {
-        checkStatus({ [STATUS_KEY]: changes[STATUS_KEY].newValue });
+      if (area === 'local') {
+        if (changes[STATUS_KEY]) {
+          checkStatus({ [STATUS_KEY]: changes[STATUS_KEY].newValue });
+        }
+        if (changes['terramap.topBarOpenedAt']) {
+          setIsOpen(false);
+        }
       }
     };
     chrome.storage.onChanged.addListener(listener);
@@ -99,7 +104,7 @@ export default function App() {
 
   // Use the logo from public folder
   const logoUrl = chrome.runtime.getURL('/logo.svg');
-  const popupUrl = chrome.runtime.getURL('/popup.html');
+  const popupUrl = chrome.runtime.getURL('/popup.html?floating=1');
 
   return (
     <div 

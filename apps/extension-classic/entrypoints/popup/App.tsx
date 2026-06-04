@@ -131,6 +131,14 @@ export default function App() {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
+  // Tell floating UI to close when this top-bar popup is opened
+  useEffect(() => {
+    const isFloating = new URLSearchParams(window.location.search).get('floating') === '1';
+    if (!isFloating) {
+      chrome.storage.local.set({ 'terramap.topBarOpenedAt': Date.now() });
+    }
+  }, []);
+
   function dismissStatus() {
     chrome.storage.local.remove(STATUS_KEY).catch(() => {});
     setPersistedStatus(null);
@@ -313,7 +321,7 @@ export default function App() {
               Pengguna
             </span>
             <span 
-              className="text-xs font-medium text-[rgb(0,55,46)] truncate max-w-[150px]" 
+              className="text-xs font-medium text-[rgb(0,55,46)] break-all" 
               title={session.user.email}
             >
               {session.user.email}
