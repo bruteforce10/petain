@@ -18,8 +18,14 @@ export default defineConfig({
     },
   } : undefined,
   manifest: {
-    name: 'Petain',
-    description: 'Riset bisnis lokal dari Google Maps — scrape kompetitor per kecamatan.',
+    name: 'Petain Scrapper',
+    description: 'Ekstensi untuk mengekstrak data POI dari Google Maps ke dalam format CSV/XLSX untuk riset bisnis lokal.',
+    version: '1.0.0',
+    icons: {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    },
     permissions: ['storage', 'activeTab', 'scripting', 'tabs', 'alarms'],
     host_permissions: ['https://*.google.com/*'],
     web_accessible_resources: [
