@@ -3,6 +3,15 @@
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * sleep with ±jitter so automated pacing isn't metronomic. A near-constant
+ * inter-action interval over hundreds of scroll/click steps is one of the
+ * cheapest automation tells; spreading each wait across [factorMin, factorMax]×ms
+ * makes the cadence read more like a human and harder to flag heuristically.
+ */
+export const jitteredSleep = (ms: number, factorMin = 0.7, factorMax = 1.4) =>
+  sleep(Math.round(ms * (factorMin + Math.random() * (factorMax - factorMin))));
+
+/**
  * Scroll an element (or window) repeatedly until height stops growing or
  * maxRounds reached. Used to force lazy lists (Maps results, product grids)
  * to load all items.

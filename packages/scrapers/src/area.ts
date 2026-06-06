@@ -50,7 +50,10 @@ export async function scrapeAreaOnPage(
     return [{ ...single, scrape_session_id: sessionId, keyword: query }];
   }
 
-  const list = await scrapeGoogleMaps(scrollDelayMs);
+  const list = await scrapeGoogleMaps(scrollDelayMs, {
+    maxResults,
+    maxRounds: Math.max(80, Math.ceil(maxResults * 1.5)),
+  });
   console.log('[terramap/scrape] list pass:', list.length);
 
   if (!list.length) {

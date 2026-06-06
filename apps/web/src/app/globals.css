@@ -3,6 +3,13 @@
 @import "shadcn/tailwind.css";
 @import "@terramap/ui/styles/globals.css";
 
+/* Brand palette ported from labs (@terramap/config Tailwind preset).
+   Generates bg-brand, text-brand, border-brand, *-brand-dark utilities. */
+@theme {
+  --color-brand: #16a34a;
+  --color-brand-dark: #15803d;
+}
+
 @layer utilities {
   .t22-container {
     width: min(1640px, calc(100% - 48px));

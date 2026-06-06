@@ -1,5 +1,5 @@
 import type { Place } from '@terramap/types';
-import { autoScroll, sleep, waitForSelector } from './scroll';
+import { sleep, jitteredSleep, waitForSelector } from './scroll';
 
 /**
  * Scrape Google Maps search-result feed (the left-hand list panel).
@@ -8,6 +8,7 @@ import { autoScroll, sleep, waitForSelector } from './scroll';
  */
 
 const FEED = 'div[role="feed"]';
+const CARD_SELECTOR = 'div[role="article"], div.Nv2PK';
 // Omnibox: name="q" + role="combobox" excludes the two ZBTq6e directions inputs.
 const SEARCH_INPUT = 'input[name="q"][role="combobox"]';
 
@@ -89,6 +90,175 @@ export async function scrapeCurrentPlace(): Promise<Place | null> {
   return parseDetail(panel, { name: h1.textContent?.trim() || '' } as Place);
 }
 
+/**
+ * Stable Google place id: ONLY the `!1s0x..:0x..` CID pair, which names the POI
+ * itself. We deliberately do NOT fall back to a bare `0x..:0x..` scan — the
+ * `data=` blob in a list-card href carries several unrelated hex pairs that
+ * Google re-stamps every render, so a bare scan returns a *different* value for
+ * each duplicate card of the same place. That false-uniqueness is exactly what
+ * let the dupes survive de-dup. Null when the href has no tagged CID.
+ */
+function placeFeatureId(href: string | null | undefined): string | null {
+  if (!href) return null;
+  const tagged = href.match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/i);
+  return tagged ? tagged[1].toLowerCase() : null;
+}
+
+/**
+ * Identity key for de-duplicating list results.
+ *
+ * Primary key is normalized name+address: Google's search feed repeats the same
+ * POI many times (sponsored + organic + scroll re-fetches), each repeat a fresh
+ * snapshot with its own review count and its own per-render `maps_url` — but the
+ * name and full address are byte-for-byte identical, and no two genuinely
+ * distinct businesses share an identical name AND full street address. That
+ * makes name+address the only field pair stable enough to collapse the dupes.
+ *
+ * The tagged CID and coords are fallbacks only for the rare card that parses no
+ * address. Name-only is the last resort.
+ */
+function placeDedupKey(p: Place): string {
+  const name = (p.name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const addr = (p.address || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (name && addr) return `na:${name}|${addr}`;
+  const fid = placeFeatureId(p.maps_url);
+  if (fid) return `fid:${fid}`;
+  if (name && p.lat != null && p.lng != null) {
+    return `nc:${name}|${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
+  }
+  return `n:${name}`;
+}
+
+/**
+ * Collapse duplicate places by {@link placeDedupKey}, keeping the first
+ * occurrence. Run as a final safety pass after the deep scrape: the detail
+ * panel rewrites name/address with fuller values, so two list rows that looked
+ * distinct (one had a truncated address) can resolve to the same business.
+ */
+export function dedupePlaces(places: Place[]): Place[] {
+  const seen = new Set<string>();
+  const out: Place[] = [];
+  for (const p of places) {
+    const key = placeDedupKey(p);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out;
+}
+
+function collectVisiblePlaces(
+  feed: Element,
+  seen: Set<string>,
+  places: Place[],
+  maxResults: number,
+): number {
+  let added = 0;
+  const cards = feed.querySelectorAll(CARD_SELECTOR);
+  cards.forEach((card) => {
+    if (places.length >= maxResults) return;
+    const p = parseCard(card);
+    if (!p) return;
+    const key = placeDedupKey(p);
+    if (seen.has(key)) return;
+    seen.add(key);
+    places.push(p);
+    added++;
+  });
+  return added;
+}
+
+function feedShowsEnd(feed: Element): boolean {
+  const text = ((feed as HTMLElement).innerText || '').toLowerCase();
+  return (
+    text.includes("you've reached the end of the list") ||
+    text.includes('you have reached the end of the list') ||
+    text.includes('anda telah mencapai akhir daftar') ||
+    text.includes('akhir daftar') ||
+    text.includes('tidak ada hasil lainnya')
+  );
+}
+
+async function resetFeedToTop(feed: HTMLElement, delayMs: number): Promise<void> {
+  feed.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  feed.dispatchEvent(new Event('scroll', { bubbles: true }));
+  await sleep(Math.max(300, Math.min(delayMs, 900)));
+}
+
+/**
+ * Scroll the feed and ALSO emit a `wheel` event. A bare scrollBy fires no wheel
+ * events at all, whereas real users scroll lazy lists with the wheel/trackpad —
+ * dispatching one makes the scroll pattern read less like a script to Maps'
+ * lazy-load listeners. dy is randomized a little at the call sites so the step
+ * size isn't a constant either.
+ */
+function feedScrollBy(feed: HTMLElement, dy: number): void {
+  feed.dispatchEvent(new WheelEvent('wheel', { deltaY: dy, bubbles: true }));
+  feed.scrollBy(0, dy);
+}
+
+/**
+ * Locate the feed card for a place. The deep pass walks the list top→bottom, so
+ * this only ever scrolls DOWNWARD from the current position and never resets to
+ * the top mid-pass — re-sweeping the whole list on every locate is exactly what
+ * made the feed appear to scroll endlessly after each detail open.
+ *
+ * Matching prefers the stable tagged CID (`!1s` pair) over name+address: Maps
+ * re-ranks/re-renders the feed after a detail Back and parseCard's address is
+ * heuristic, so a strict name+address key can miss a card that is actually on
+ * screen. The CID names the POI itself and is render-stable, so it survives the
+ * re-render; we fall back to the full name+address key (collision-safe for
+ * same-name chains) when no CID is present.
+ */
+async function locateCardForPlace(
+  feed: HTMLElement,
+  place: Place,
+  delayMs: number,
+): Promise<Element | null> {
+  const wantCid = placeFeatureId(place.maps_url);
+  const wantKey = placeDedupKey(place);
+
+  const matches = (card: Element): boolean => {
+    const parsed = parseCard(card);
+    if (!parsed) return false;
+    if (wantCid) {
+      const cid = placeFeatureId(parsed.maps_url);
+      if (cid) return cid === wantCid; // stable CID is authoritative when present
+    }
+    return placeDedupKey(parsed) === wantKey;
+  };
+
+  const findVisible = () =>
+    Array.from(feed.querySelectorAll(CARD_SELECTOR)).find(matches) ?? null;
+
+  let found = findVisible();
+  if (found) return found;
+
+  // Downward-only sweep: the target is at or below the current position because
+  // the deep pass visits cards in list order. Bounded + early-break on stall /
+  // end-of-list so a card that genuinely can't be re-located can't burn the
+  // whole list — it fails fast and the deep pass keeps its list-pass data.
+  let stable = 0;
+  for (let i = 0; i < 40; i++) {
+    const before = feed.scrollTop;
+    feedScrollBy(feed, Math.max(700, Math.round(feed.clientHeight * (0.75 + Math.random() * 0.2))));
+    await jitteredSleep(delayMs);
+
+    found = findVisible();
+    if (found) return found;
+
+    const after = feed.scrollTop;
+    if (Math.abs(after - before) < 4) {
+      stable++;
+      if (stable >= 2 || feedShowsEnd(feed)) break;
+    } else {
+      stable = 0;
+    }
+  }
+
+  return findVisible();
+}
+
 function extractLatLng(href: string | null): { lat: number | null; lng: number | null } {
   if (!href) return { lat: null, lng: null };
   // /maps/place/.../@-6.2,106.8,17z/ or !3dLAT!4dLNG
@@ -154,23 +324,38 @@ function parseCard(card: Element): Place | null {
   };
 }
 
-export async function scrapeGoogleMaps(delayMs = 800): Promise<Place[]> {
+export async function scrapeGoogleMaps(
+  delayMs = 800,
+  { maxResults = Number.POSITIVE_INFINITY, maxRounds = 120 } = {},
+): Promise<Place[]> {
   const feed = (await waitForSelector(FEED)) as HTMLElement | null;
   if (!feed) return [];
 
-  await autoScroll(feed, { step: 1000, delay: delayMs, maxRounds: 50 });
-
-  const cards = feed.querySelectorAll('div[role="article"], div.Nv2PK');
   const places: Place[] = [];
   const seen = new Set<string>();
+  let stableRounds = 0;
 
-  cards.forEach((card) => {
-    const p = parseCard(card);
-    if (p && !seen.has(p.name + p.maps_url)) {
-      seen.add(p.name + p.maps_url);
-      places.push(p);
+  await resetFeedToTop(feed, delayMs);
+
+  for (let i = 0; i < maxRounds && places.length < maxResults; i++) {
+    const added = collectVisiblePlaces(feed, seen, places, maxResults);
+    if (added === 0) stableRounds++;
+    else stableRounds = 0;
+
+    if (feedShowsEnd(feed) && stableRounds >= 2) break;
+
+    const beforeTop = feed.scrollTop;
+    feedScrollBy(feed, Math.max(900, Math.round(feed.clientHeight * (0.8 + Math.random() * 0.2))));
+    await jitteredSleep(delayMs);
+
+    const afterTop = feed.scrollTop;
+    if (Math.abs(afterTop - beforeTop) < 4) {
+      stableRounds++;
+      if (stableRounds >= 5) break;
     }
-  });
+  }
+
+  collectVisiblePlaces(feed, seen, places, maxResults);
 
   return places;
 }
@@ -217,14 +402,22 @@ function parseHours(panel: Element): Record<string, string> | null {
 function parseRatingBreakdown(panel: Element): number[] | null {
   // Histogram rows: aria-label like "5 stars, 120 reviews" / "5 bintang, 120 ulasan".
   const bars = panel.querySelectorAll('[role="img"][aria-label*="bintang"], [role="img"][aria-label*="stars"]');
-  const counts: number[] = [];
+  // Pre-fill with zeros: index-assigning a fresh array and checking `.length`
+  // would pass with `undefined` holes (e.g. a star level Maps renders out of
+  // order or with a differing label), which serialize to null and store a
+  // malformed breakdown. Require all 5 rows to have actually matched.
+  const counts = [0, 0, 0, 0, 0];
+  let matched = 0;
   bars.forEach((b) => {
     const lbl = ariaText(b) ?? '';
     // Only single-digit star rows (1..5), not aggregate "4,7 bintang".
     const m = lbl.match(/^([1-5])\s*(bintang|stars)\D+([\d.,]+)/i);
-    if (m) counts[5 - parseInt(m[1], 10)] = parseInt(m[3].replace(/[.,]/g, ''), 10) || 0;
+    if (m) {
+      counts[5 - parseInt(m[1], 10)] = parseInt(m[3].replace(/[.,]/g, ''), 10) || 0;
+      matched++;
+    }
   });
-  return counts.length === 5 ? counts : null;
+  return matched === 5 ? counts : null;
 }
 
 function parseDetail(panel: Element, base: Place): Place {
@@ -294,34 +487,83 @@ export async function scrapeGoogleMapsDeep(
   places: Place[],
   { limit = 60, delay = 800 } = {},
 ): Promise<Place[]> {
-  const feed = document.querySelector(FEED);
-  if (!feed) return places;
+  const feed0 = document.querySelector(FEED) as HTMLElement | null;
+  if (!feed0) return places;
 
   const enriched = [...places];
   const n = Math.min(limit, enriched.length);
 
+  // The list pass leaves the feed parked at the BOTTOM, but the deep pass walks
+  // the list top→bottom. Reset to the top ONCE here so card 0 is found by a
+  // short downward sweep instead of falling through to a full re-scroll, and so
+  // locateCardForPlace can stay downward-only for the rest of the pass.
+  await resetFeedToTop(feed0, delay);
+
+  // A run of cards that can't be opened/relocated means the DOM broke (e.g. Back
+  // selector went stale after a Maps redesign). Bail instead of silently
+  // grinding through the whole budget producing un-enriched rows.
+  let consecutiveFailures = 0;
+  const fail = (): boolean => ++consecutiveFailures >= 5;
+
   for (let i = 0; i < n; i++) {
     try {
-      const cards = feed.querySelectorAll('div[role="article"], div.Nv2PK');
-      const card = cards[i];
+      // Maps virtualizes the feed, so off-screen cards are often unmounted.
+      // Scroll-locate the exact result before opening its detail panel.
+      const feed = document.querySelector(FEED) as HTMLElement | null;
+      if (!feed) {
+        if (fail()) break;
+        continue;
+      }
+      const card = await locateCardForPlace(feed, enriched[i], delay);
       const click = (card?.querySelector('a[href*="/maps/place"]') ?? card) as HTMLElement | null;
-      if (!click) continue;
+      if (!click) {
+        if (fail()) break;
+        continue;
+      }
+
+      // Remember where the card sat. Opening a detail panel can drop the feed
+      // back near the top on Back; restoring this lets the NEXT (lower) card be
+      // found with a short nudge instead of re-sweeping from the top.
+      const savedTop = feed.scrollTop;
 
       click.click();
       const h1 = await waitForSelector(DETAIL_NAME);
-      if (!h1) continue;
-      await sleep(delay);
+      if (!h1) {
+        if (fail()) break;
+        continue;
+      }
+      await jitteredSleep(delay);
 
       const panel = (h1.closest('[role="main"]') ?? document.body) as Element;
       enriched[i] = parseDetail(panel, enriched[i]);
+      consecutiveFailures = 0;
 
       const back = document.querySelector(BACK_BTN) as HTMLElement | null;
-      back?.click();
-      await sleep(delay / 2);
-    } catch {
-      // brittle DOM — skip this card, keep the list-pass data
+      if (back) back.click();
+      else history.back();
+      await jitteredSleep(delay / 2);
+
+      const feedBack = (await waitForSelector(FEED, 6_000)) as HTMLElement | null;
+      if (feedBack && savedTop > 0) {
+        feedBack.scrollTo({ top: savedTop, behavior: 'instant' as ScrollBehavior });
+        await sleep(Math.min(delay, 400));
+      }
+
+      // Periodic cooldown: opening hundreds of place panels back-to-back at a
+      // steady cadence is the signal most likely to trip Maps' rate-limit /
+      // "unusual traffic" heuristics. A jittered rest every ~25 cards makes the
+      // run bursty-then-idle like a human instead of a constant stream.
+      if ((i + 1) % 25 === 0) await jitteredSleep(2500, 1, 2.5);
+    } catch (err) {
+      // brittle DOM — skip this card, keep the list-pass data, but surface it
+      // so a systemic break isn't completely silent.
+      console.warn('[terramap/scrape] deep card failed:', err);
+      if (fail()) break;
     }
   }
 
-  return enriched;
+  // Final safety net: the deep pass rewrote name/address with the detail
+  // panel's fuller values, which can expose duplicates the list pass missed
+  // (e.g. a list card that had truncated the address). Collapse them once more.
+  return dedupePlaces(enriched);
 }

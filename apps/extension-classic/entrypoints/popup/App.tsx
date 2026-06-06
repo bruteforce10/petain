@@ -10,11 +10,10 @@ import {
 
 const MAX_RESULTS_OPTIONS = [20, 40, 60, 100, 200] as const;
 const DELAY_OPTIONS = [
-  { value: 500, label: '500ms — Cepat ⚡' },
-  { value: 700, label: '700ms — Normal' },
-  { value: 1000, label: '1000ms — Aman' },
-  { value: 1500, label: '1500ms — Lebih Aman' },
-  { value: 2000, label: '2000ms — Paling Aman' },
+  { value: 1500, label: '1500ms — Normal' },
+  { value: 2000, label: '2000ms — Aman' },
+  { value: 2500, label: '2500ms — Lebih Aman' },
+  { value: 3000, label: '3000ms — Paling Aman' },
 ] as const;
 
 const STATUS_KEY = 'terramap.lastScrape';
@@ -98,7 +97,7 @@ export default function App() {
   const [businessQuery, setBusinessQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [maxResults, setMaxResults] = useState(60);
-  const [scrollDelayMs, setScrollDelayMs] = useState(1000);
+  const [scrollDelayMs, setScrollDelayMs] = useState(1500);
 
   const [geofenceEnabled, setGeofenceEnabled] = useState(false);
   const [selectedProvinsi, setSelectedProvinsi] = useState('');
@@ -315,32 +314,21 @@ export default function App() {
         </div>
 
         {/* User Info */}
+        {/* NOTE: a "Masa Aktif / Sisa N Hari" countdown was removed here — it was
+            a hardcoded dummy (always 6 days, always red) shown to every user as
+            if it were a real subscription state. Re-add it wired to a real
+            expiry field from the Supabase profile once billing exists. */}
         <div className="flex items-center justify-between rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
           <div className="flex flex-col">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/70">
               Pengguna
             </span>
-            <span 
-              className="text-xs font-medium text-[rgb(0,55,46)] break-all" 
+            <span
+              className="text-xs font-medium text-[rgb(0,55,46)] break-all"
               title={session.user.email}
             >
               {session.user.email}
             </span>
-          </div>
-          
-          <div className="flex flex-col items-end text-right">
-             <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/70">
-               Masa Aktif
-             </span>
-             {(() => {
-               const dummyDaysLeft = 6;
-               const isExpiringSoon = dummyDaysLeft < 10;
-               return (
-                 <span className={`text-[11px] font-bold ${isExpiringSoon ? 'text-red-500' : 'text-[#01C07A]'}`}>
-                   Sisa {dummyDaysLeft} Hari
-                 </span>
-               );
-             })()}
           </div>
         </div>
 

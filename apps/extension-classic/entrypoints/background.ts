@@ -46,7 +46,7 @@ async function setStatus(s: Omit<PersistedStatus, 'timestamp'>): Promise<void> {
 function diagnose(err: string): string | undefined {
   const e = err.toLowerCase();
   if (e.includes('timeout waiting for area_scrape_result')) {
-    return 'Scrape timeout (3 menit). Buka popup lagi — extension akan auto-resume jika scrape masih berjalan. Jika tetap gagal, kurangi "Max hasil" atau pakai query yang lebih spesifik.';
+    return 'Scrape timeout. Buka popup lagi — extension akan auto-resume jika scrape masih berjalan. Jika tetap gagal, kurangi "Max hasil" atau pakai query yang lebih spesifik.';
   }
   if (e.includes('halaman detail maps terbuka tapi data tempat gagal dibaca')) {
     return 'Maps berhasil buka halaman tempat tapi struktur halamannya berubah. Selector Maps perlu diupdate — laporkan ke developer.';
@@ -103,7 +103,7 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   }
   const userId = userData.user.id;
   const sessionId = nextSessionId();
-  const { businessQuery, locationQuery } = msg.params;
+  const { businessQuery, locationQuery, maxResults, scrollDelayMs } = msg.params;
   const geofenceLocation = msg.params.geofence?.enabled
     ? [
         msg.params.geofence.kecamatan,
@@ -198,16 +198,21 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
     });
 
     // Register push listener BEFORE sending the run message to avoid race.
-    const resultPromise = waitForResultPush(sessionId, 180_000);
+    const scrapeTimeoutMs = estimateScrapeTimeoutMs(maxResults, scrollDelayMs);
+    const waiter = waitForResultPush(sessionId, scrapeTimeoutMs);
 
     try {
       await sendWithRetry(tabId, runMsg, 5, 800);
     } catch (e: any) {
       console.log('[terramap/bg] sendMessage to content failed:', e);
+      // All retries failed → no content script in the tab, so it persisted no
+      // resume state and a result push can never arrive. Fail fast instead of
+      // pinning the SW (and the alarm heartbeat) for the full ~3–20 min timeout.
+      waiter.cancel(new Error(`tab open: ${e?.message ?? e}`));
     }
     console.log('[terramap/bg] RUN_AREA_SCRAPE dispatched, waiting for push…');
 
-    const result = await resultPromise;
+    const result = await waiter.promise;
     console.log('[terramap/bg] received push:', {
       placeCount: result.places.length,
       error: (result as any).error,
@@ -275,25 +280,44 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
   }
 }
 
+function estimateScrapeTimeoutMs(maxResults: number, scrollDelayMs: number): number {
+  const delay = Math.max(scrollDelayMs || 0, 800);
+  const listPassMs = maxResults * delay * 2;
+  const detailPassMs = maxResults * delay * 4;
+  return Math.max(180_000, Math.min(20 * 60_000, 90_000 + listPassMs + detailPassMs));
+}
+
+interface ResultWaiter {
+  promise: Promise<AreaScrapeResult & { error?: string }>;
+  /** Abort the wait early (e.g. a dead dispatch) and tear down its listener/timer. */
+  cancel: (err: Error) => void;
+}
+
 /** Wait for the content script to push AREA_SCRAPE_RESULT for our sessionId. */
-function waitForResultPush(
-  sessionId: string,
-  timeoutMs: number,
-): Promise<AreaScrapeResult & { error?: string }> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+function waitForResultPush(sessionId: string, timeoutMs: number): ResultWaiter {
+  let cancel: (err: Error) => void = () => {};
+  const promise = new Promise<AreaScrapeResult & { error?: string }>((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
       chrome.runtime.onMessage.removeListener(handler);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
       reject(new Error(`Timeout waiting for AREA_SCRAPE_RESULT (${timeoutMs}ms)`));
     }, timeoutMs);
     const handler = (incoming: any) => {
       if (incoming?.type === 'AREA_SCRAPE_RESULT' && incoming.sessionId === sessionId) {
-        clearTimeout(timer);
-        chrome.runtime.onMessage.removeListener(handler);
+        cleanup();
         resolve(incoming);
       }
     };
     chrome.runtime.onMessage.addListener(handler);
+    cancel = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
   });
+  return { promise, cancel };
 }
 
 function waitForTabComplete(tabId: number, timeoutMs: number): Promise<void> {

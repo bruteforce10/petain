@@ -312,12 +312,20 @@ export default function Home() {
             ))}
           </div>
 
-          <a
-            className="rounded-full bg-[rgb(0,55,46)] px-5 py-2.5 text-sm font-medium text-[rgb(250,250,240)] transition hover:opacity-90"
-            href="#harga"
-          >
-            🚀 Mulai Riset
-          </a>
+          <div className="flex items-center gap-3">
+            <Link
+              className="hidden text-sm font-medium text-[rgb(0,55,46)] transition hover:opacity-70 sm:inline"
+              href="/login"
+            >
+              Login
+            </Link>
+            <a
+              className="rounded-full bg-[rgb(0,55,46)] px-5 py-2.5 text-sm font-medium text-[rgb(250,250,240)] transition hover:opacity-90"
+              href="#harga"
+            >
+              🚀 Mulai Riset
+            </a>
+          </div>
         </div>
       </nav>
 
