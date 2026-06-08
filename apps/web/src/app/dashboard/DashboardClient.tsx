@@ -13,7 +13,15 @@ export function DashboardClient({ email }: { email: string }) {
   const router = useRouter();
   const [runs, setRuns] = useState<ScrapeRunSummary[] | null>(null);
   const [err, setErr] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Deep link: the extension's "Lihat Tabel Data" button opens ?run=<id> to jump
+  // straight into that scrape's detail/table. Read it once at init (SSR-safe:
+  // the runs list is still null on first render, so the output is "Loading…"
+  // either way and there's no hydration mismatch).
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    typeof window === "undefined"
+      ? null
+      : new URLSearchParams(window.location.search).get("run"),
+  );
 
   const loadRuns = useCallback(() => {
     fetchScrapeRuns(supabase)
@@ -68,7 +76,11 @@ export function DashboardClient({ email }: { email: string }) {
           hint="Use the extension to scrape Google Maps, Shopee, or Tokopedia."
         />
       ) : runs ? (
-        <ScrapeRunList runs={runs} onOpen={(r) => setSelectedId(r.id)} />
+        <ScrapeRunList
+          runs={runs}
+          onOpen={(r) => setSelectedId(r.id)}
+          onChanged={loadRuns}
+        />
       ) : null}
     </main>
   );

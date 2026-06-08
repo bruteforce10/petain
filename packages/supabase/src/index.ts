@@ -291,4 +291,14 @@ export async function deleteScrapeRun(
   if (error) throw error;
 }
 
+/** Delete several scrape runs in one request (for bulk selection in the dashboard). */
+export async function deleteScrapeRuns(
+  client: SupabaseClient,
+  runIds: string[],
+): Promise<void> {
+  if (!runIds.length) return;
+  const { error } = await client.from('scrape_runs').delete().in('id', runIds);
+  if (error) throw error;
+}
+
 export type { SupabaseClient };

@@ -19,6 +19,42 @@ export interface ScrapeRun {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  // AI market analysis cached per run (see supabase/ai_summary.sql). Generated
+  // on demand from the run's places; null until the user requests it.
+  ai_summary?: AiMarketSummary | null;
+  ai_summary_generated_at?: string | null;
+}
+
+/**
+ * Structured market-analyst output produced by the Gemini-backed
+ * `/api/ai-summary` route. Mirrors the JSON the model is instructed to return;
+ * persisted to `scrape_runs.ai_summary`.
+ */
+export interface AiMarketSummary {
+  /** Executive summary in Indonesian. */
+  summary: string;
+  swot: {
+    strengths: string[];
+    weaknesses: string[];
+    opportunities: string[];
+    threats: string[];
+  };
+  marketAnalysis: {
+    marketDensity: string;
+    competitionLevel: string;
+    dominantPlayers: string;
+    pricePositioningInsight: string;
+  };
+  /** 0–100; see the scoring bands in the prompt. */
+  opportunityScore: {
+    score: number;
+    reason: string;
+  };
+  recommendation: {
+    businessPotential: string;
+    differentiationStrategy: string;
+    operationalSuggestion: string;
+  };
 }
 
 /** Lightweight projection used by Labs folder list. */
@@ -124,6 +160,8 @@ export interface SaveStatus {
   inserted: number;
   error?: string;
   sessionId?: string;
+  /** scrape_runs.id of the folder this scrape saved into (deep-link target). */
+  runId?: string;
 }
 
 /** Popup -> background: start a radius-area scrape session. */

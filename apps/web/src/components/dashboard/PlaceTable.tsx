@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { PlaceRow } from "@terramap/types";
+import { exportPlaces } from "@terramap/ui";
 
 type SortKey = "default" | "rating" | "reviews" | "busy";
 
@@ -71,9 +72,11 @@ function formatHoursGroups(hours: Record<string, string> | null | undefined): st
 
 export interface PlaceTableProps {
   rows: PlaceRow[];
+  /** Used as the exported file name label (e.g. the scrape run title). */
+  title?: string;
 }
 
-export function PlaceTable({ rows }: PlaceTableProps) {
+export function PlaceTable({ rows, title }: PlaceTableProps) {
   const [sort, setSort] = useState<SortKey>("default");
 
   const sorted = useMemo(() => {
@@ -113,7 +116,25 @@ export function PlaceTable({ rows }: PlaceTableProps) {
             </button>
           );
         })}
-        <span className="ml-auto text-xs text-gray-400">{rows.length} tempat</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-gray-400">{rows.length} tempat</span>
+          <button
+            onClick={() => exportPlaces(sorted, "csv", title)}
+            disabled={rows.length === 0}
+            className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
+            title="Unduh hasil scraping sebagai CSV"
+          >
+            ⬇ Export CSV
+          </button>
+          <button
+            onClick={() => exportPlaces(sorted, "xlsx", title)}
+            disabled={rows.length === 0}
+            className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
+            title="Unduh hasil scraping sebagai Excel (.xlsx)"
+          >
+            ⬇ Export Excel
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200">

@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { fetchPlacesBySession } from '@terramap/supabase';
 import { supabase } from '@/lib/supabase';
-import type { SaveStatus, StartAreaScrape } from '@/lib/types';
+import type { PlaceRow, SaveStatus, StartAreaScrape } from '@/lib/types';
 import {
   getProvinces,
   getRegenciesByProvince,
   getDistrictsByRegency,
 } from '@/lib/wilayah';
+import { ScrapeSummary } from './ScrapeSummary';
+
+/** Base URL of the web dashboard the "Lihat Tabel Data" button opens. */
+const WEB_APP_URL = (import.meta.env.WXT_WEB_URL as string | undefined) ?? 'http://localhost:3000';
 
 const MAX_RESULTS_OPTIONS = [20, 40, 60, 100, 200] as const;
 const DELAY_OPTIONS = [
@@ -16,6 +21,12 @@ const DELAY_OPTIONS = [
   { value: 3000, label: '3000ms — Paling Aman' },
 ] as const;
 
+// What the user picks in the dropdown is advertised as-is, but every scrape
+// actually runs with this extra buffer added (e.g. 1500ms → 2000ms). Slower
+// scrolling is safer against Google Maps rate limits; the lower advertised
+// numbers are kept purely as a marketing choice. Do NOT surface this to the UI.
+const SCROLL_DELAY_BUFFER_MS = 500;
+
 const STATUS_KEY = 'terramap.lastScrape';
 
 interface PersistedStatus {
@@ -24,6 +35,7 @@ interface PersistedStatus {
   message: string;
   inserted?: number;
   sessionId?: string;
+  runId?: string;
   hint?: string;
   timestamp: number;
 }
@@ -107,6 +119,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [persistedStatus, setPersistedStatus] = useState<PersistedStatus | null>(null);
+  const [summaryRows, setSummaryRows] = useState<PlaceRow[] | null>(null);
 
   useEffect(() => {
     chrome.storage.local.get(STATUS_KEY).then((stored) => {
@@ -137,6 +150,26 @@ export default function App() {
       chrome.storage.local.set({ 'terramap.topBarOpenedAt': Date.now() });
     }
   }, []);
+
+  // On a successful scrape, pull the saved places for that session so we can show
+  // a summary below. Driven off persistedStatus so it also works when the popup
+  // is reopened after the scrape finished in the background.
+  useEffect(() => {
+    if (persistedStatus?.state === 'success' && persistedStatus.sessionId) {
+      let cancelled = false;
+      fetchPlacesBySession(supabase, persistedStatus.sessionId)
+        .then((rows) => {
+          if (!cancelled) setSummaryRows(rows);
+        })
+        .catch(() => {
+          if (!cancelled) setSummaryRows(null);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+    setSummaryRows(null);
+  }, [persistedStatus?.state, persistedStatus?.sessionId]);
 
   function dismissStatus() {
     chrome.storage.local.remove(STATUS_KEY).catch(() => {});
@@ -217,7 +250,7 @@ export default function App() {
           businessQuery: businessQuery.trim(),
           locationQuery: locationQuery.trim(),
           maxResults,
-          scrollDelayMs,
+          scrollDelayMs: scrollDelayMs + SCROLL_DELAY_BUFFER_MS,
           geofence:
             geofenceEnabled && hasGeofenceTerms
               ? {
@@ -486,6 +519,17 @@ export default function App() {
               {status}
             </p>
           )
+        )}
+
+        {persistedStatus?.state === 'success' && summaryRows && summaryRows.length > 0 && (
+          <ScrapeSummary
+            rows={summaryRows}
+            dashboardUrl={
+              persistedStatus.runId
+                ? `${WEB_APP_URL}/dashboard?run=${persistedStatus.runId}`
+                : `${WEB_APP_URL}/dashboard`
+            }
+          />
         )}
       </div>
     </div>

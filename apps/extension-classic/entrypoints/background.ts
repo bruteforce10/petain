@@ -33,6 +33,7 @@ interface PersistedStatus {
   message: string;
   inserted?: number;
   sessionId?: string;
+  runId?: string;
   hint?: string;
   timestamp: number;
 }
@@ -261,8 +262,9 @@ async function handleStart(msg: StartAreaScrape): Promise<SaveStatus> {
       message: `Tersimpan ${rows.length} POI`,
       inserted: rows.length,
       sessionId,
+      runId,
     });
-    return { type: 'SAVE_STATUS', ok: true, inserted: rows.length, sessionId };
+    return { type: 'SAVE_STATUS', ok: true, inserted: rows.length, sessionId, runId };
   } catch (e: any) {
     console.log('[terramap/bg] handleStart caught:', e);
     const errMsg = e?.message ?? String(e);

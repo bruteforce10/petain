@@ -11,6 +11,7 @@ import {
 import { ProductTable, EmptyState } from "@terramap/ui";
 import { PlaceTable } from "./PlaceTable";
 import { AreaAnalysis } from "./AreaAnalysis";
+import { AiSummary } from "./AiSummary";
 import { supabase } from "@/lib/supabase/client";
 
 export interface ScrapeRunDetailProps {
@@ -171,11 +172,12 @@ export function ScrapeRunDetail({ run, onBack, onChanged, onDeleted }: ScrapeRun
           <EmptyState title="No places" hint="This run did not capture any results." />
         ) : (
           <div className="space-y-6">
+            <AiSummary key={run.id} runId={run.id} placeCount={places.length} />
             <Section title="Area analysis" count={places.length}>
               <AreaAnalysis rows={places} />
             </Section>
             <Section title="Places" count={places.length}>
-              <PlaceTable rows={places} />
+              <PlaceTable rows={places} title={run.title} />
             </Section>
           </div>
         ))}
