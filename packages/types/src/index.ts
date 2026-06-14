@@ -183,3 +183,49 @@ export interface AreaScrapeResult {
   sessionId: string;
   places: Place[];
 }
+
+/** Background -> content: toggle the on-page preview sidebar. */
+export interface ToggleSidebar {
+  type: 'TOGGLE_SIDEBAR';
+}
+
+/* ------------------------------------------------------------------ *
+ * Live scrape progress. Streamed in-process from the scraper kernel  *
+ * to the on-page sidebar so the user sees each place as it lands.    *
+ * ------------------------------------------------------------------ */
+
+export type ScrapePhase =
+  | 'idle'
+  | 'searching'
+  | 'listing'
+  | 'details'
+  | 'filtering'
+  | 'done'
+  | 'error';
+
+/** One place as it streams into the live list (subset of Place fields). */
+export interface ScrapeProgressItem {
+  name: string;
+  rating?: number | null;
+  category?: string | null;
+  address?: string | null;
+}
+
+/** Snapshot of an in-flight scrape, rendered live by the sidebar. */
+export interface ScrapeProgress {
+  phase: ScrapePhase;
+  /** 1..phaseTotal — drives the "Phase n/3" header. */
+  phaseStep: number;
+  phaseTotal: number;
+  /** Localized phase text, e.g. "Mengambil detail". */
+  label: string;
+  /** Items processed in the current phase. */
+  current: number;
+  /** Items expected in the current phase (0 when unknown). */
+  total: number;
+  items: ScrapeProgressItem[];
+  error?: string;
+}
+
+/** Callback the scraper kernel invokes on every progress tick. */
+export type OnScrapeProgress = (progress: ScrapeProgress) => void;

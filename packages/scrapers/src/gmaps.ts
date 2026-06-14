@@ -1,5 +1,23 @@
-import type { Place } from '@terramap/types';
-import { sleep, jitteredSleep, waitForSelector } from './scroll';
+import type { Place, ScrapeProgressItem } from '@terramap/types';
+import { jitteredSleep, sleep, waitForSelector } from './scroll';
+
+/**
+ * Fine-grained progress callback. Fired once per place as it is parsed (list
+ * pass) or enriched (deep pass), so the on-page sidebar can stream the live
+ * list. Optional everywhere — callers that don't pass it pay nothing.
+ */
+export type ItemReporter = (info: {
+  item: ScrapeProgressItem;
+  current: number;
+  total: number;
+}) => void;
+
+const toProgressItem = (p: Place): ScrapeProgressItem => ({
+  name: p.name,
+  rating: p.rating ?? null,
+  category: p.category ?? null,
+  address: p.address ?? null,
+});
 
 /**
  * Scrape Google Maps search-result feed (the left-hand list panel).
@@ -152,6 +170,7 @@ function collectVisiblePlaces(
   seen: Set<string>,
   places: Place[],
   maxResults: number,
+  onItem?: ItemReporter,
 ): number {
   let added = 0;
   const cards = feed.querySelectorAll(CARD_SELECTOR);
@@ -164,6 +183,9 @@ function collectVisiblePlaces(
     seen.add(key);
     places.push(p);
     added++;
+    // Stream each newly-collected place so the on-page sidebar can show a live
+    // list. Total is unknown mid-scroll, so report it as the running count.
+    onItem?.({ item: toProgressItem(p), current: places.length, total: places.length });
   });
   return added;
 }
@@ -327,6 +349,7 @@ function parseCard(card: Element): Place | null {
 export async function scrapeGoogleMaps(
   delayMs = 800,
   { maxResults = Number.POSITIVE_INFINITY, maxRounds = 120 } = {},
+  onItem?: ItemReporter,
 ): Promise<Place[]> {
   const feed = (await waitForSelector(FEED)) as HTMLElement | null;
   if (!feed) return [];
@@ -338,7 +361,7 @@ export async function scrapeGoogleMaps(
   await resetFeedToTop(feed, delayMs);
 
   for (let i = 0; i < maxRounds && places.length < maxResults; i++) {
-    const added = collectVisiblePlaces(feed, seen, places, maxResults);
+    const added = collectVisiblePlaces(feed, seen, places, maxResults, onItem);
     if (added === 0) stableRounds++;
     else stableRounds = 0;
 
@@ -355,7 +378,7 @@ export async function scrapeGoogleMaps(
     }
   }
 
-  collectVisiblePlaces(feed, seen, places, maxResults);
+  collectVisiblePlaces(feed, seen, places, maxResults, onItem);
 
   return places;
 }
@@ -486,6 +509,7 @@ function parseDetail(panel: Element, base: Place): Place {
 export async function scrapeGoogleMapsDeep(
   places: Place[],
   { limit = 60, delay = 800 } = {},
+  onItem?: ItemReporter,
 ): Promise<Place[]> {
   const feed0 = document.querySelector(FEED) as HTMLElement | null;
   if (!feed0) return places;
@@ -517,6 +541,7 @@ export async function scrapeGoogleMapsDeep(
       const card = await locateCardForPlace(feed, enriched[i], delay);
       const click = (card?.querySelector('a[href*="/maps/place"]') ?? card) as HTMLElement | null;
       if (!click) {
+        onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
         if (fail()) break;
         continue;
       }
@@ -529,6 +554,7 @@ export async function scrapeGoogleMapsDeep(
       click.click();
       const h1 = await waitForSelector(DETAIL_NAME);
       if (!h1) {
+        onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
         if (fail()) break;
         continue;
       }
@@ -537,6 +563,7 @@ export async function scrapeGoogleMapsDeep(
       const panel = (h1.closest('[role="main"]') ?? document.body) as Element;
       enriched[i] = parseDetail(panel, enriched[i]);
       consecutiveFailures = 0;
+      onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
 
       const back = document.querySelector(BACK_BTN) as HTMLElement | null;
       if (back) back.click();
@@ -558,6 +585,7 @@ export async function scrapeGoogleMapsDeep(
       // brittle DOM — skip this card, keep the list-pass data, but surface it
       // so a systemic break isn't completely silent.
       console.warn('[terramap/scrape] deep card failed:', err);
+      onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
       if (fail()) break;
     }
   }
