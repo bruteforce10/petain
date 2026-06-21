@@ -1,10 +1,8 @@
 import { createTerramapClient } from '@terramap/supabase';
 
-// WXT exposes env vars prefixed WXT_ on import.meta.env.
 const url = import.meta.env.WXT_SUPABASE_URL as string;
 const anonKey = import.meta.env.WXT_SUPABASE_ANON_KEY as string;
 
-// Session persisted in chrome.storage.local (service worker has no localStorage).
 const chromeStorage = {
   getItem: (key: string) =>
     chrome.storage.local.get(key).then((r) => r[key] ?? null),

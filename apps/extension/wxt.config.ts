@@ -10,7 +10,6 @@ const chromeBinary = [
   '/opt/thorium-browser-avx2/thorium',
 ].find((path): path is string => Boolean(path && existsSync(path)));
 
-// https://wxt.dev/api/config.html
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   runner: chromeBinary ? {
@@ -19,13 +18,21 @@ export default defineConfig({
     },
   } : undefined,
   manifest: {
-    name: 'TerraMap Scraper',
-    description: 'Scrape Google Maps places & Shopee/Tokopedia products to Supabase',
-    permissions: ['storage', 'activeTab', 'scripting', 'tabs'],
-    host_permissions: [
-      'https://*.google.com/*',
-      'https://*.shopee.co.id/*',
-      'https://*.tokopedia.com/*',
+    name: 'Petain Scrapper',
+    description: 'Ekstensi untuk mengekstrak data POI dari Google Maps ke dalam format CSV/XLSX untuk riset bisnis lokal.',
+    version: '1.0.0',
+    icons: {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    },
+    permissions: ['storage', 'activeTab', 'scripting', 'tabs', 'alarms'],
+    host_permissions: ['https://*.google.com/*'],
+    web_accessible_resources: [
+      {
+        resources: ['popup.html', 'logo.svg'],
+        matches: ['https://*.google.com/*'],
+      },
     ],
   },
 });

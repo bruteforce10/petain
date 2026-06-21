@@ -14,9 +14,7 @@
     "dev:ext": "turbo run dev --filter=@terramap/extension",
     "dev:web": "turbo run dev --filter=@terramap/web",
     "dev:labs": "turbo run dev --filter=@terramap/labs",
-    "dev:ext-class": "turbo run dev --filter=@terramap/extension-classic",
-    "build:ext-class": "bun run --cwd apps/extension-classic build",
-    "zip:ext-class": "bun run --cwd apps/extension-classic zip",
+    "zip:ext": "bun run --cwd apps/extension zip",
     "build": "turbo run build",
     "compile": "turbo run compile",
     "lint": "turbo run lint"
