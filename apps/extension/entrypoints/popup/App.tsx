@@ -9,6 +9,7 @@ import {
   getDistrictsByRegency,
 } from '@/lib/wilayah';
 import { ScrapeSummary } from './ScrapeSummary';
+import { AgentChatTab } from '@/lib/agentPanel';
 
 /** Base URL of the web dashboard the "Lihat Tabel Data" button opens. */
 const WEB_APP_URL = (import.meta.env.WXT_WEB_URL as string | undefined) ?? 'http://localhost:3000';
@@ -120,6 +121,8 @@ export default function App() {
   const [status, setStatus] = useState('');
   const [persistedStatus, setPersistedStatus] = useState<PersistedStatus | null>(null);
   const [summaryRows, setSummaryRows] = useState<PlaceRow[] | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'manual' | 'agent' | 'settings'>('manual');;
 
   useEffect(() => {
     chrome.storage.local.get(STATUS_KEY).then((stored) => {
@@ -281,8 +284,8 @@ export default function App() {
 
   if (!session) {
     return (
-      <div className="bg-[rgb(250,250,240)] text-[rgb(0,55,46)]">
-        <div className="space-y-4 p-5">
+      <div className="bg-[rgb(250,250,240)] text-[rgb(0,55,46)] flex flex-col h-screen w-full">
+        <div className="flex flex-col flex-1 space-y-3 p-4 overflow-y-auto">
           <div className="flex items-center justify-center gap-2 pt-1">
             <Logo className="h-8 w-auto" />
           </div>
@@ -333,205 +336,245 @@ export default function App() {
   }
 
   return (
-    <div className="bg-[rgb(250,250,240)] text-[rgb(0,55,46)]">
-      <div className="space-y-3 p-4">
+    <div className="bg-[rgb(250,250,240)] text-[rgb(0,55,46)] flex flex-col w-[400px] h-[600px]">
+      <div className="flex flex-col flex-1 space-y-3 p-4 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between shrink-0">
           <Logo className="h-7 w-auto" />
+        </div>
+        <div className="flex rounded-xl bg-[rgb(238,238,228)] p-1.5 shadow-inner shrink-0">
           <button
-            className="rounded-full border border-[rgb(0,55,46)]/15 px-2.5 py-1 text-[11px] font-medium text-[rgb(5,87,72)] transition hover:bg-[rgb(0,55,46)]/5"
-            onClick={() => supabase.auth.signOut()}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all duration-200 ease-out active:scale-95 ${
+              activeTab === 'manual'
+                ? 'bg-white text-[rgb(0,55,46)] shadow-sm ring-1 ring-[rgb(0,55,46)]/5'
+                : 'text-[rgb(5,87,72)]/60 hover:text-[rgb(0,55,46)]'
+            }`}
+            onClick={() => setActiveTab('manual')}
           >
-            Keluar
+            <span className={activeTab === 'manual' ? 'opacity-100' : 'opacity-70'}>🛠️</span>
+            Manual
+          </button>
+          <button
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all duration-200 ease-out active:scale-95 ${
+              activeTab === 'agent'
+                ? 'bg-white text-[#01C07A] shadow-sm ring-1 ring-[#01C07A]/10'
+                : 'text-[rgb(5,87,72)]/60 hover:text-[rgb(0,55,46)]'
+            }`}
+            onClick={() => setActiveTab('agent')}
+          >
+            <span className={activeTab === 'agent' ? 'opacity-100' : 'opacity-70'}>✨</span>
+            Agent
+          </button>
+          <button
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all duration-200 ease-out active:scale-95 ${
+              activeTab === 'settings'
+                ? 'bg-white text-[rgb(0,55,46)] shadow-sm ring-1 ring-[rgb(0,55,46)]/5'
+                : 'text-[rgb(5,87,72)]/60 hover:text-[rgb(0,55,46)]'
+            }`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <span className={activeTab === 'settings' ? 'opacity-100' : 'opacity-70'}>⚙️</span>
+            Settings
           </button>
         </div>
 
-        {/* User Info */}
-        {/* NOTE: a "Masa Aktif / Sisa N Hari" countdown was removed here — it was
-            a hardcoded dummy (always 6 days, always red) shown to every user as
-            if it were a real subscription state. Re-add it wired to a real
-            expiry field from the Supabase profile once billing exists. */}
-        <div className="flex items-center justify-between rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/70">
-              Pengguna
-            </span>
-            <span
-              className="text-xs font-medium text-[rgb(0,55,46)] break-all"
-              title={session.user.email}
-            >
-              {session.user.email}
-            </span>
-          </div>
-        </div>
-
-        {/* Query card */}
-        <div className="space-y-2 rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
-              Jenis usaha
-            </span>
-            <input
-              className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
-              placeholder="contoh: coffee shop"
-              value={businessQuery}
-              onChange={(e) => setBusinessQuery(e.target.value)}
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
-              Lokasi
-            </span>
-            <input
-              className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
-              placeholder="contoh: Bandung Kota"
-              value={locationQuery}
-              onChange={(e) => setLocationQuery(e.target.value)}
-              disabled={geofenceEnabled}
-            />
-          </label>
-        </div>
-
-        {/* Settings card */}
-        <div className="space-y-2 rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
-                Max hasil
-              </span>
-              <select
-                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
-                value={maxResults}
-                onChange={(e) => setMaxResults(Number(e.target.value))}
-              >
-                {MAX_RESULTS_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
-                Delay scroll
-              </span>
-              <select
-                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
-                value={scrollDelayMs}
-                onChange={(e) => setScrollDelayMs(Number(e.target.value))}
-              >
-                {DELAY_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <p className="text-[10px] text-[rgb(5,87,72)]/60">
-            💡 Delay tinggi = aman dari rate limit Google Maps
-          </p>
-        </div>
-
-        {/* Geofence card */}
-        <div className="rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
-          <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold">
-            <input
-              type="checkbox"
-              checked={geofenceEnabled}
-              onChange={(e) => setGeofenceEnabled(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-[#01C07A]"
-            />
-            <span>Filter per kecamatan</span>
-            <span className="ml-auto rounded-full bg-[rgb(238,238,228)] px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[rgb(5,87,72)]">
-              Opsional
-            </span>
-          </label>
-
-          {geofenceEnabled && (
-            <div className="mt-3 space-y-2">
-              <p className="text-[10px] leading-snug text-[rgb(5,87,72)]/70">
-                Field yang diisi akan dipakai untuk mempersempit pencarian. Boleh kosong sebagian.
-              </p>
-              <select
-                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
-                value={selectedProvinsi}
-                onChange={(e) => handleProvinsiChange(e.target.value)}
-              >
-                <option value="">— Pilih Provinsi —</option>
-                {provinces.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
-                value={selectedKabupaten}
-                onChange={(e) => handleKabupatenChange(e.target.value)}
-                disabled={!selectedProvinsi}
-              >
-                <option value="">— Pilih Kabupaten / Kota —</option>
-                {regencies.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
-                value={selectedKecamatan}
-                onChange={(e) => setSelectedKecamatan(e.target.value)}
-                disabled={!selectedKabupaten}
-              >
-                <option value="">— Pilih Kecamatan —</option>
-                {districts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+        {activeTab === 'manual' && (
+          <>
+            <div className="space-y-2 rounded-2xl  p-3 shadow-sm">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+                  Jenis usaha
+                </span>
+                <input
+                  className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+                  placeholder="contoh: coffee shop"
+                  value={businessQuery}
+                  onChange={(e) => setBusinessQuery(e.target.value)}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+                  Lokasi
+                </span>
+                <input
+                  className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-3 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
+                  placeholder="contoh: Bandung Kota"
+                  value={locationQuery}
+                  onChange={(e) => setLocationQuery(e.target.value)}
+                  disabled={geofenceEnabled}
+                />
+              </label>
             </div>
-          )}
-        </div>
 
-        {/* CTA */}
-        <button
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-[rgb(0,55,46)] py-3 text-sm font-semibold text-[rgb(250,250,240)] shadow-md shadow-[rgb(0,55,46)]/25 transition hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:bg-[rgb(0,55,46)]/40 disabled:shadow-none"
-          onClick={() => scrape()}
-          disabled={busy}
-        >
-          {busy ? (
-            <>
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[rgb(250,250,240)]/30 border-t-[rgb(250,250,240)]" />
-              Scraping…
-            </>
-          ) : (
-            <>🚀 Mulai Scrape</>
-          )}
-        </button>
+            <div className="space-y-2 rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+                    Max hasil
+                  </span>
+                  <select
+                    className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+                    value={maxResults}
+                    onChange={(e) => setMaxResults(Number(e.target.value))}
+                  >
+                    {MAX_RESULTS_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-[rgb(5,87,72)]/80">
+                    Delay scroll
+                  </span>
+                  <select
+                    className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2 py-2 text-sm outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+                    value={scrollDelayMs}
+                    onChange={(e) => setScrollDelayMs(Number(e.target.value))}
+                  >
+                    {DELAY_OPTIONS.map(({ value, label }) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="text-[10px] text-[rgb(5,87,72)]/60">
+                💡 Delay tinggi = aman dari rate limit Google Maps
+              </p>
+            </div>
 
-        {persistedStatus ? (
-          <StatusBanner status={persistedStatus} onDismiss={dismissStatus} />
-        ) : (
-          status && (
-            <p className="rounded-xl bg-[rgb(238,238,228)] px-3 py-2 text-xs leading-snug text-[rgb(5,87,72)] whitespace-pre-wrap">
-              {status}
-            </p>
-          )
+            <div className="rounded-2xl border border-[rgb(0,55,46)]/10 bg-white p-3 shadow-sm">
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold">
+                <input
+                  type="checkbox"
+                  checked={geofenceEnabled}
+                  onChange={(e) => setGeofenceEnabled(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-[#01C07A]"
+                />
+                <span>Filter per kecamatan</span>
+                <span className="ml-auto rounded-full bg-[rgb(238,238,228)] px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[rgb(5,87,72)]">
+                  Opsional
+                </span>
+              </label>
+
+              {geofenceEnabled && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-[10px] leading-snug text-[rgb(5,87,72)]/70">
+                    Field yang diisi akan dipakai untuk mempersempit pencarian. Boleh kosong sebagian.
+                  </p>
+                  <select
+                    className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20"
+                    value={selectedProvinsi}
+                    onChange={(e) => handleProvinsiChange(e.target.value)}
+                  >
+                    <option value="">— Pilih Provinsi —</option>
+                    {provinces.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
+                    value={selectedKabupaten}
+                    onChange={(e) => handleKabupatenChange(e.target.value)}
+                    disabled={!selectedProvinsi}
+                  >
+                    <option value="">— Pilih Kabupaten / Kota —</option>
+                    {regencies.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="w-full rounded-xl border border-[rgb(0,55,46)]/15 bg-[rgb(250,250,240)] px-2.5 py-2 text-xs outline-none transition focus:border-[#01C07A] focus:bg-white focus:ring-2 focus:ring-[#01C07A]/20 disabled:opacity-50"
+                    value={selectedKecamatan}
+                    onChange={(e) => setSelectedKecamatan(e.target.value)}
+                    disabled={!selectedKabupaten}
+                  >
+                    <option value="">— Pilih Kecamatan —</option>
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <button
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-[rgb(0,55,46)] py-3 text-sm font-semibold text-[rgb(250,250,240)] shadow-md shadow-[rgb(0,55,46)]/25 transition hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:bg-[rgb(0,55,46)]/40 disabled:shadow-none"
+              onClick={() => scrape()}
+              disabled={busy}
+            >
+              {busy ? (
+                <>
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[rgb(250,250,240)]/30 border-t-[rgb(250,250,240)]" />
+                  Scraping…
+                </>
+              ) : (
+                <>🚀 Mulai Scrape</>
+              )}
+            </button>
+
+            {persistedStatus ? (
+              <StatusBanner status={persistedStatus} onDismiss={dismissStatus} />
+            ) : (
+              status && (
+                <p className="rounded-xl bg-[rgb(238,238,228)] px-3 py-2 text-xs leading-snug text-[rgb(5,87,72)] whitespace-pre-wrap">
+                  {status}
+                </p>
+              )
+            )}
+
+            {persistedStatus?.state === 'success' && summaryRows && summaryRows.length > 0 && (
+              <ScrapeSummary
+                rows={summaryRows}
+                dashboardUrl={
+                  persistedStatus.runId
+                    ? `${WEB_APP_URL}/dashboard?run=${persistedStatus.runId}`
+                    : `${WEB_APP_URL}/dashboard`
+                }
+              />
+            )}
+
+          </>
+        )}
+        {activeTab === 'agent' && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <AgentChatTab />
+          </div>
         )}
 
-        {persistedStatus?.state === 'success' && summaryRows && summaryRows.length > 0 && (
-          <ScrapeSummary
-            rows={summaryRows}
-            dashboardUrl={
-              persistedStatus.runId
-                ? `${WEB_APP_URL}/dashboard?run=${persistedStatus.runId}`
-                : `${WEB_APP_URL}/dashboard`
-            }
-          />
+        {/* KONTEN TAB SETTINGS */}
+        {activeTab === 'settings' && (
+          <div className="flex flex-col flex-1 overflow-y-auto pb-4 space-y-3 rounded-2xl p-4 ">
+            <div className="flex items-center justify-between rounded-2xl  p-3">
+              <div className="flex flex-col">
+                <span
+                  className="text-xs font-medium text-[rgb(0,55,46)] break-all"
+                  title={session.user.email}
+                >
+                  {session.user.email}
+                </span>
+              </div>
+              <button
+                className="font-medium text-[rgb(5,87,72)] transition hover:bg-[rgb(0,55,46)]/5"
+                onClick={() => supabase.auth.signOut()}
+              >
+                Keluar
+              </button>
+            </div>
+            {/* Kamu bisa bikin <SettingsTab /> component sendiri dan taruh di sini nantinya */}
+          </div>
         )}
-      </div>
+
+    </div>
     </div>
   );
 }

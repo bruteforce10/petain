@@ -1,6 +1,5 @@
 import { defineContentScript } from 'wxt/sandbox';
 import { createRoot } from 'react-dom/client';
-import React from 'react';
 import App from './App';
 import './style.css';
 
@@ -9,7 +8,7 @@ export default defineContentScript({
   cssInjectionMode: 'ui',
   async main(ctx) {
     const { createShadowRootUi } = await import('wxt/client');
-    
+
     const ui = await createShadowRootUi(ctx, {
       name: 'petain-floating-ui',
       position: 'inline',
