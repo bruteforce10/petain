@@ -64,9 +64,12 @@ async function maybeResume(): Promise<void> {
     'at',
     location.href,
   );
+  // forceSearch: a resume can wake up parked on the place page of whichever
+  // card the dead run last clicked. Re-running the search puts the scrape back
+  // on the results feed instead of returning that one place as the result.
   await runAndPush({
     type: 'RUN_AREA_SCRAPE',
-    params: active.params,
+    params: { ...active.params, forceSearch: true },
     sessionId: active.sessionId,
   });
 }

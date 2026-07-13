@@ -46,8 +46,13 @@ export async function proxy(request: NextRequest) {
     return res;
   };
 
-  // Not logged in + hitting /dashboard -> send to login.
-  if (!user && pathname.startsWith("/dashboard")) {
+  // Not logged in + hitting a protected area -> send to login.
+  if (
+    !user &&
+    (pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/kalkulator-hpp") ||
+      pathname.startsWith("/agent-ai"))
+  ) {
     return redirectTo("/login");
   }
 

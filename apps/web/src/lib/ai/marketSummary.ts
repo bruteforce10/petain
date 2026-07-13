@@ -1,4 +1,5 @@
 import type { AiMarketSummary, PlaceRow } from "@terramap/types";
+import { AiConfigError, callGeminiJson } from "./gemini";
 
 /**
  * Server-only helpers that turn a run's scraped places into a structured
@@ -6,8 +7,8 @@ import type { AiMarketSummary, PlaceRow } from "@terramap/types";
  * bundles — it reads GEMINI_API_KEY.
  */
 
-/** Thrown when the server is missing its Gemini key, so the route can 500 with a clear message. */
-export class AiConfigError extends Error {}
+// Re-export so existing imports (api/ai-summary) keep working.
+export { AiConfigError };
 
 const SYSTEM_PROMPT = `Kamu adalah analis pasar dan konsultan bisnis lokal Indonesia yang berpengalaman dalam analisis lokasi usaha, kompetitor, dan peluang pasar UMKM.
 
@@ -232,54 +233,14 @@ function normalise(raw: Record<string, unknown>): AiMarketSummary {
   };
 }
 
-const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
-
 /** Call Gemini and return the parsed, normalised market summary. */
 async function callGemini(systemPrompt: string, userPrompt: string): Promise<AiMarketSummary> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new AiConfigError(
-      "GEMINI_API_KEY belum diatur di server. Tambahkan key dari Google AI Studio ke .env.local.",
-    );
-  }
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-
-  const res = await fetch(`${GEMINI_ENDPOINT}/${model}:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        temperature: 0.4,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-      },
-    }),
+  const parsed = await callGeminiJson<Record<string, unknown>>({
+    systemPrompt,
+    userPrompt,
+    responseSchema: RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+    temperature: 0.4,
   });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Gemini API error ${res.status}: ${detail.slice(0, 300)}`);
-  }
-
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-    promptFeedback?: { blockReason?: string };
-  };
-
-  if (data.promptFeedback?.blockReason) {
-    throw new Error(`Permintaan diblokir oleh Gemini: ${data.promptFeedback.blockReason}`);
-  }
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini mengembalikan respons kosong.");
-
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error("Gemini mengembalikan JSON yang tidak valid.");
-  }
   return normalise(parsed);
 }
 

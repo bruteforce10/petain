@@ -67,10 +67,13 @@ export async function scrapeAreaOnPage(
 
   const query = `${businessQuery} ${geofenceLocation || locationQuery}`.trim();
 
-  // Resumed runs (content script reinjected after Maps full-reloaded into
-  // /maps/place/) skip the search step — we're already on the target POI.
+  // A fresh run landing on /maps/place/ means the query itself pinned one POI —
+  // skip the search. A RESUMED run (forceSearch) can be parked on the last
+  // clicked card's place page after a mid-scrape reload; without re-searching
+  // it would take the single-place path below and push 1 row for what was a
+  // multi-result scrape.
   emit({ phase: 'searching', current: 0, total: 0 });
-  if (!location.pathname.startsWith('/maps/place/')) {
+  if (params.forceSearch || !location.pathname.startsWith('/maps/place/')) {
     await searchOnMaps(query);
   } else {
     console.log('[terramap/scrape] already on /maps/place/, skipping searchOnMaps');
@@ -141,7 +144,7 @@ export async function scrapeAreaOnPage(
   }
 
   emit({ phase: 'filtering', current: 0, total: deep.length });
-  const filtered = deep.filter((p) => addressContainsAny(p.address, geofenceTerms));
+  const filtered = deep.filter((p) => passesGeofence(p.address, geofenceTerms));
 
   if (!filtered.length) {
     const filterLabel = geofenceTerms.join(', ');
@@ -152,6 +155,22 @@ export async function scrapeAreaOnPage(
 
   emit({ phase: 'done', current: filtered.length, total: filtered.length, items: filtered.map(toProgressItem) });
   return filtered.map((p) => ({ ...p, scrape_session_id: sessionId, keyword: query }));
+}
+
+/**
+ * Geofence acceptance for one scraped row. Only a FULL address (detail-panel
+ * style, comma-separated locality segments) can prove a place sits outside
+ * the filtered area. List-pass card addresses are street-only
+ * ("Jl. Ganesha No.3") and carry no kecamatan/kabupaten information at all,
+ * so rows whose detail enrichment failed must be kept — rejecting them turned
+ * partial enrichment failures into "20 scraped, 2 saved".
+ */
+export function passesGeofence(
+  address: string | null | undefined,
+  terms: string[],
+): boolean {
+  if (!address || !address.includes(',')) return true;
+  return addressContainsAny(address, terms);
 }
 
 /**

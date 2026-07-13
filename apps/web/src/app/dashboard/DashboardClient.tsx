@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { ScrapeRunSummary } from "@terramap/types";
 import { fetchScrapeRuns } from "@terramap/supabase";
 import { EmptyState } from "@terramap/ui";
@@ -9,8 +8,7 @@ import { ScrapeRunList } from "@/components/dashboard/ScrapeRunList";
 import { ScrapeRunDetail } from "@/components/dashboard/ScrapeRunDetail";
 import { supabase } from "@/lib/supabase/client";
 
-export function DashboardClient({ email }: { email: string }) {
-  const router = useRouter();
+export function DashboardClient() {
   const [runs, setRuns] = useState<ScrapeRunSummary[] | null>(null);
   const [err, setErr] = useState("");
   // Deep link: the extension's "Lihat Tabel Data" button opens ?run=<id> to jump
@@ -36,27 +34,18 @@ export function DashboardClient({ email }: { email: string }) {
     loadRuns();
   }, [loadRuns]);
 
-  async function logout() {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
-
   const selected = runs?.find((r) => r.id === selectedId) ?? null;
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8 bg-gray-50">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Scrape history</h1>
-          <p className="text-sm text-gray-500">{email}</p>
-        </div>
-        <button className="text-sm text-gray-500 underline" onClick={logout}>
-          logout
-        </button>
-      </header>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Riwayat Scraping</h1>
+        <p className="text-sm text-muted-foreground">
+          Data kompetitor hasil scraping dari extension Petain
+        </p>
+      </div>
 
-      {err && <p className="mb-4 text-sm text-red-600">{err}</p>}
+      {err && <p className="text-sm text-red-600">{err}</p>}
 
       {selected ? (
         <ScrapeRunDetail
@@ -69,11 +58,11 @@ export function DashboardClient({ email }: { email: string }) {
           }}
         />
       ) : runs == null && !err ? (
-        <p className="text-gray-500">Loading…</p>
+        <p className="text-muted-foreground">Memuat…</p>
       ) : runs && runs.length === 0 ? (
         <EmptyState
-          title="No scrape runs yet"
-          hint="Use the extension to scrape Google Maps, Shopee, or Tokopedia."
+          title="Belum ada hasil scraping"
+          hint="Gunakan extension untuk scrape Google Maps, Shopee, atau Tokopedia."
         />
       ) : runs ? (
         <ScrapeRunList
@@ -82,6 +71,6 @@ export function DashboardClient({ email }: { email: string }) {
           onChanged={loadRuns}
         />
       ) : null}
-    </main>
+    </div>
   );
 }

@@ -110,6 +110,13 @@ export interface AreaScrapeParams {
     kabupaten: string;
     kecamatan: string;
   };
+  /**
+   * Internal — set by the content script when it RESUMES a scrape after Maps
+   * full-reloaded mid-run. Forces a fresh search so a run parked on a stale
+   * /maps/place/ page re-enters the results feed instead of degrading a
+   * multi-result scrape into a single-place result.
+   */
+  forceSearch?: boolean;
 }
 
 /** A product scraped from Shopee/Tokopedia (insert into `products`). */

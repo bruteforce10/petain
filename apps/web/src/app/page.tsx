@@ -432,32 +432,40 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ SOLUTION ═══════════════ */}
-      <section className="py-16 md:py-24">
-        <div className="t22-container-narrow grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-          <div className="order-2 flex justify-center lg:order-1">
+      <section className="bg-[#FBFAF3] py-16 md:py-24">
+        <div className="t22-container-narrow grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
+          <div className="relative order-2 lg:order-1">
+            <div className="pointer-events-none absolute inset-[-5%] bg-[radial-gradient(50%_50%_at_50%_50%,rgba(145,255,180,0.4),transparent_70%)] blur-lg" />
             <img
               alt="Petain — solusi riset pasar otomatis"
-              className="max-w-md rounded-2xl border border-[rgb(0,55,46)]/10 shadow-xl"
+              className="relative w-full rounded-[20px] shadow-[0_24px_50px_-28px_rgba(0,55,46,0.35)]"
               src="/images/petain/solution-map.png"
             />
           </div>
           <div className="order-1 lg:order-2">
-            <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.1] tracking-[-0.03em]">
+            <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#01C07A]">
+              Solusinya
+            </p>
+            <h2 className="mt-3.5 text-[clamp(1.8rem,3.6vw,2.7rem)] font-extrabold leading-[1.14] tracking-[-0.03em]">
               Petain Kasih Kamu Gambaran Pasar yang Jelas —{" "}
-              <span className="text-[rgb(5,87,72)]">Dalam Hitungan Menit.</span>
+              <span className="text-[#01C07A]">Dalam Hitungan Menit.</span>
             </h2>
-            <p className="mt-5 text-base leading-relaxed text-[rgb(5,87,72)] md:text-lg">
+            <p className="mt-5 text-[17px] leading-relaxed text-[#055748]">
               Masukkan jenis usaha dan area yang kamu incar. Petain langsung
               kumpulkan data kompetitor di sana, filter supaya hasilnya akurat
               per kecamatan, dan sajikan dalam laporan yang bisa langsung
               dibaca.
             </p>
-            <div className="mt-6 space-y-2.5">
-              <p className="text-sm font-semibold">Kamu jadi tahu:</p>
+            <p className="mb-3.5 mt-6 text-base font-extrabold">
+              Kamu jadi tahu:
+            </p>
+            <div className="flex flex-col gap-3">
               {solutionPoints.map((p) => (
-                <div className="flex items-start gap-2.5" key={p}>
-                  <span className="mt-0.5 text-[#91ffb4]">✓</span>
-                  <p className="text-sm leading-relaxed text-[rgb(5,87,72)]">
+                <div className="flex items-start gap-3" key={p}>
+                  <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-[#91ffb4] text-[13px] font-extrabold text-[#00372E]">
+                    ✓
+                  </span>
+                  <p className="text-base leading-relaxed text-[#055748]">
                     {p}
                   </p>
                 </div>
@@ -468,64 +476,126 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ FEATURES ═══════════════ */}
-      <section id="fitur" className="bg-[rgb(238,238,228)] py-16 md:py-24">
+      <section id="fitur" className="bg-[#EEEEE4] py-16 md:py-24">
         <div className="t22-container-narrow">
-          <div className="text-center">
-            <p className="text-sm font-semibold uppercase tracking-widest text-[rgb(5,87,72)]">
+          <div className="mx-auto max-w-[660px] text-center">
+            <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#01C07A]">
               Fitur Utama
             </p>
-            <h2 className="mx-auto mt-3 max-w-2xl text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.1] tracking-[-0.03em]">
+            <h2 className="mt-3.5 text-[clamp(1.9rem,3.8vw,2.8rem)] font-extrabold leading-[1.12] tracking-[-0.03em]">
               Semua yang kamu butuhkan untuk riset pasar lokal
             </h2>
           </div>
 
-          <div className="mt-12 space-y-6">
-            {features.map((f, i) => (
+          {features.slice(0, 3).map((f, i) => {
+            const isImageLeft = i % 2 !== 0;
+            const frame = isImageLeft
+              ? {
+                  card: "bg-[linear-gradient(150deg,#f7ecdc,#f1e0c9)] shadow-[0_30px_60px_-34px_rgba(120,70,20,0.4)]",
+                  dot: "bg-[rgba(120,70,20,0.16)]",
+                  img: "shadow-[0_14px_30px_-18px_rgba(120,70,20,0.5)]",
+                }
+              : {
+                  card: "bg-[linear-gradient(150deg,#d9f6e3,#c7eed8)] shadow-[0_30px_60px_-34px_rgba(0,55,46,0.45)]",
+                  dot: "bg-[rgba(0,55,46,0.18)]",
+                  img: "shadow-[0_14px_30px_-18px_rgba(0,55,46,0.5)]",
+                };
+            return (
               <div
-                className={`grid items-center gap-8 rounded-2xl bg-[rgb(250,250,240)] p-6 shadow-sm md:p-8 ${
-                  f.image ? "lg:grid-cols-2" : ""
-                }`}
+                className="mt-16 grid items-center gap-10 lg:grid-cols-2 lg:gap-14"
                 key={f.title}
               >
-                <div className={i % 2 !== 0 && f.image ? "lg:order-2" : ""}>
-                  <div className="mb-4 flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgb(0,55,46)]/10 text-lg">
+                <div className={isImageLeft ? "lg:order-2" : ""}>
+                  <div className="inline-flex items-center gap-3">
+                    <span className="grid h-[52px] w-[52px] flex-none place-items-center rounded-[15px] bg-[#00372E] text-[25px] text-[#91ffb4]">
                       {f.icon}
                     </span>
-                    <h3 className="text-xl font-bold tracking-tight">
-                      {f.title}
-                    </h3>
+                    <span className="text-[13px] font-extrabold tracking-[0.14em] text-[#01C07A]">
+                      FITUR 0{i + 1}
+                    </span>
                   </div>
-                  <p className="text-base leading-relaxed text-[rgb(5,87,72)]">
+                  <h3 className="mt-5 text-[26px] font-extrabold leading-[1.15] tracking-[-0.025em]">
+                    {f.title}
+                  </h3>
+                  <p className="mt-3.5 text-base leading-relaxed text-[#055748]">
                     {f.description}
                   </p>
-                  <div className="mt-4 space-y-2">
-                    {f.details.map((d) => (
-                      <div className="flex items-start gap-2" key={d}>
-                        <span className="mt-1 text-xs text-[rgb(0,55,46)]">
-                          ✅
-                        </span>
-                        <p className="text-sm leading-relaxed text-[rgb(5,87,72)]">
-                          {d}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  {f.extra && (
-                    <p className="mt-3 text-sm italic text-[rgb(5,87,72)]/70">
-                      {f.extra}
+                  {f.details.length === 1 ? (
+                    <p className="mt-5 inline-flex items-center gap-2.5 rounded-full bg-[#91ffb4] px-[18px] py-[11px] text-[15px] font-bold text-[#00372E]">
+                      <span className="font-extrabold">✓</span> {f.details[0]}
                     </p>
+                  ) : (
+                    <ul className="mt-4 flex flex-col gap-2.5">
+                      {f.details.map((d) => (
+                        <li
+                          className="flex gap-2.5 text-[15px] text-[#055748]"
+                          key={d}
+                        >
+                          <span className="font-extrabold text-[#01C07A]">
+                            ✓
+                          </span>
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
-                {f.image && (
-                  <div className={i % 2 !== 0 ? "lg:order-1" : ""}>
-                    <img
-                      alt={f.title}
-                      className="rounded-xl border border-[rgb(0,55,46)]/10"
-                      src={f.image}
+                <div
+                  className={`rounded-[26px] p-[22px] ${frame.card} ${isImageLeft ? "lg:order-1" : ""}`}
+                >
+                  <div className="flex gap-[7px] px-1 pb-3.5 pt-1">
+                    <span
+                      className={`h-[11px] w-[11px] rounded-full ${frame.dot}`}
+                    />
+                    <span
+                      className={`h-[11px] w-[11px] rounded-full ${frame.dot}`}
+                    />
+                    <span
+                      className={`h-[11px] w-[11px] rounded-full ${frame.dot}`}
                     />
                   </div>
-                )}
+                  <img
+                    alt={f.title}
+                    className={`w-full rounded-[14px] ${frame.img}`}
+                    src={f.image}
+                  />
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="mt-16 grid gap-[22px] md:grid-cols-3">
+            {features.slice(3).map((f, i) => (
+              <div
+                className="relative overflow-hidden rounded-[22px] border border-[rgb(0,55,46)]/8 bg-white px-[30px] py-8 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_rgba(0,55,46,0.28)]"
+                key={f.title}
+              >
+                <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#01C07A,#91ffb4)]" />
+                <div className="flex items-center justify-between">
+                  <div className="grid h-[52px] w-[52px] place-items-center rounded-[15px] bg-[#ecfdf3] text-[25px]">
+                    {f.icon}
+                  </div>
+                  <span className="text-xs font-extrabold tracking-[0.12em] text-[rgb(0,55,46)]/25">
+                    0{i + 4}
+                  </span>
+                </div>
+                <h3 className="mt-5 text-[19px] font-extrabold tracking-[-0.02em]">
+                  {f.title}
+                </h3>
+                <p className="mt-2.5 text-[14.5px] leading-relaxed text-[#055748]">
+                  {f.description}
+                </p>
+                <ul className="mt-4 flex flex-col gap-2">
+                  {f.details.map((d) => (
+                    <li
+                      className="flex gap-[9px] text-[13.5px] text-[#055748]"
+                      key={d}
+                    >
+                      <span className="font-extrabold text-[#01C07A]">·</span>
+                      {d}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -533,44 +603,41 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ COMPARISON ═══════════════ */}
-      <section className="py-16 md:py-24">
-        <div className="t22-container-narrow">
-          <div className="text-center">
-            <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.1] tracking-[-0.03em]">
-              Riset Manual vs Pakai Petain
-            </h2>
-          </div>
+      <section className="bg-[#FBFAF3] py-16 md:py-24">
+        <div className="mx-auto w-[min(920px,calc(100%-32px))]">
+          <h2 className="text-center text-[clamp(1.8rem,4vw,2.7rem)] font-extrabold leading-[1.1] tracking-[-0.03em]">
+            Riset Manual <span className="text-[#9ca3af]">vs</span> Pakai
+            Petain
+          </h2>
 
-          <div className="mt-10 overflow-x-auto">
-            <table className="w-full min-w-[540px] overflow-hidden rounded-2xl border border-[rgb(0,55,46)]/10 text-sm">
-              <thead>
-                <tr className="bg-[rgb(238,238,228)]">
-                  <th className="p-4 text-left font-semibold"></th>
-                  <th className="p-4 text-center font-semibold text-[rgb(5,87,72)]">
-                    Riset Manual
-                  </th>
-                  <th className="rounded-tr-2xl bg-[rgb(0,55,46)] p-4 text-center font-semibold text-[rgb(250,250,240)]">
-                    Petain ✨
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white/60">
-                {comparisonData.map((row) => (
-                  <tr
-                    className="border-t border-[rgb(0,55,46)]/8"
-                    key={row.label}
-                  >
-                    <td className="p-4 font-medium">{row.label}</td>
-                    <td className="p-4 text-center text-[rgb(5,87,72)]/60">
-                      {row.manual}
-                    </td>
-                    <td className="bg-[rgb(0,55,46)]/5 p-4 text-center font-medium text-[rgb(0,55,46)]">
-                      {row.petain}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-11 overflow-x-auto">
+            <div className="min-w-[560px] overflow-hidden rounded-3xl border border-[rgb(0,55,46)]/8 bg-white shadow-[0_24px_60px_-34px_rgba(0,55,46,0.35)]">
+              <div className="grid grid-cols-[1.4fr_1fr_1fr]">
+                <div className="px-6 py-5" />
+                <div className="border-l border-[rgb(0,55,46)]/8 px-6 py-5 text-center text-[15px] font-bold text-[#6b7280]">
+                  Riset Manual
+                </div>
+                <div className="bg-[#ecfdf3] px-6 py-5 text-center text-[15px] font-extrabold text-[#00372E]">
+                  Petain ✨
+                </div>
+              </div>
+              {comparisonData.map((row) => (
+                <div
+                  className="grid grid-cols-[1.4fr_1fr_1fr] border-t border-[rgb(0,55,46)]/8"
+                  key={row.label}
+                >
+                  <div className="px-6 py-4 text-[14.5px] font-semibold text-[#00372E]">
+                    {row.label}
+                  </div>
+                  <div className="border-l border-[rgb(0,55,46)]/8 px-6 py-4 text-center text-sm text-[#9ca3af]">
+                    {row.manual}
+                  </div>
+                  <div className="bg-[#f6fef9] px-6 py-4 text-center text-sm font-semibold text-[#047857]">
+                    {row.petain}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -610,93 +677,94 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ PRICING ═══════════════ */}
-      <section id="harga" className="py-16 md:py-24">
-        <div className="t22-container-narrow">
-          <div className="text-center">
-            <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.1] tracking-[-0.03em]">
-              Investasi Kecil untuk Keputusan Bisnis Besar.
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-base text-[rgb(5,87,72)]">
-              Daripada rugi jutaan karena salah pilih lokasi atau harga, lebih
-              baik riset dengan data akurat. Tool riset kompetitor lain memungut
-              Rp499.000/bulan. Di Petain, kamu hanya perlu bayar mulai dari
-              harga 2 cangkir kopi.
+      <section id="harga" className="bg-[#FBFAF3] py-16 md:py-24">
+        <div className="mx-auto w-[min(900px,calc(100%-32px))] text-center">
+          <h2 className="text-[clamp(1.9rem,3.8vw,2.8rem)] font-extrabold leading-[1.1] tracking-[-0.03em]">
+            Investasi Kecil untuk Keputusan Bisnis Besar.
+          </h2>
+          <p className="mx-auto mt-4 max-w-[640px] text-[17px] leading-relaxed text-[#055748]">
+            Daripada rugi jutaan karena salah pilih lokasi atau harga, lebih
+            baik riset dengan data akurat. Tool riset kompetitor lain memungut
+            Rp499.000/bulan. Di Petain, kamu hanya perlu bayar mulai dari harga
+            2 cangkir kopi.
+          </p>
+
+          {/* Toggle */}
+          <div className="mt-8 inline-flex items-center rounded-full bg-[#EEEEE4] p-[5px]">
+            <button
+              onClick={() => setIsLifetime(false)}
+              className={`cursor-pointer whitespace-nowrap rounded-full px-[22px] py-[11px] text-[14.5px] font-bold transition ${
+                isLifetime
+                  ? "text-[#055748]"
+                  : "bg-[#00372E] text-[#FAFAF0] shadow-[0_4px_12px_-4px_rgba(0,55,46,0.3)]"
+              }`}
+            >
+              Akses 3 Bulan
+            </button>
+            <button
+              onClick={() => setIsLifetime(true)}
+              className={`inline-flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full px-[22px] py-[11px] text-[14.5px] font-bold transition ${
+                isLifetime
+                  ? "bg-[#00372E] text-[#FAFAF0] shadow-[0_4px_12px_-4px_rgba(0,55,46,0.3)]"
+                  : "text-[#055748]"
+              }`}
+            >
+              Permanen
+              <span className="whitespace-nowrap rounded-full bg-[#ffd53e] px-[7px] py-[3px] text-[10px] font-extrabold tracking-[0.04em] text-[#00372E]">
+                BEST VALUE
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Card */}
+        <div className="mx-auto mt-10 w-[min(480px,calc(100%-32px))]">
+          <div className="relative overflow-hidden rounded-[28px] bg-[#00372E] p-8 text-left text-[#FAFAF0] shadow-[0_40px_80px_-40px_rgba(0,55,46,0.6)] md:p-10">
+            <div className="flex items-center gap-3">
+              <span className="whitespace-nowrap rounded-full bg-[#ffd53e] px-3 py-[5px] text-xs font-extrabold text-[#00372E]">
+                HEMAT {isLifetime ? "80%" : "70%"}
+              </span>
+              <span className="text-sm font-bold tracking-[0.02em] text-[#91ffb4]">
+                Petain Pro {isLifetime ? "Lifetime" : "Basic"}
+              </span>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-x-3.5 gap-y-2">
+              <span className="text-5xl font-extrabold leading-none tracking-[-0.03em]">
+                {isLifetime ? "Rp150.000" : "Rp45.000"}
+              </span>
+              <span className="text-lg text-[rgb(250,250,240)]/50 line-through">
+                {isLifetime ? "Rp750.000" : "Rp149.000"}
+              </span>
+            </div>
+            <p className="mt-2.5 text-[14.5px] text-[rgb(250,250,240)]/70">
+              {isLifetime
+                ? "Bayar sekali, akses selamanya tanpa batas waktu."
+                : "Akses penuh selama 3 bulan, tanpa perpanjangan otomatis."}
             </p>
 
-            {/* Toggle */}
-            <div className="mt-8 flex items-center justify-center gap-4">
-              <span
-                className={`text-sm font-medium transition ${!isLifetime ? "text-[rgb(0,55,46)]" : "text-[rgb(5,87,72)]/60"}`}
-              >
-                Akses 3 Bulan
-              </span>
-              <button
-                onClick={() => setIsLifetime(!isLifetime)}
-                className="relative inline-flex h-8 w-14 items-center rounded-full bg-[rgb(0,55,46)] transition-colors focus:outline-none"
-              >
-                <span
-                  className={`inline-block h-6 w-6 transform rounded-full bg-[#91ffb4] transition ${isLifetime ? "translate-x-7" : "translate-x-1"}`}
-                />
-              </button>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-sm font-medium transition ${isLifetime ? "text-[rgb(0,55,46)]" : "text-[rgb(5,87,72)]/60"}`}
+            <a
+              className="mt-6 block rounded-full bg-[#91ffb4] p-4 text-center text-base font-extrabold text-[#00372E] shadow-[0_16px_36px_-14px_rgba(145,255,180,0.5)] transition hover:-translate-y-0.5"
+              href="#"
+            >
+              🚀 Ambil Sekarang — {isLifetime ? "Rp150.000" : "Rp45.000"}
+            </a>
+
+            <ul className="mt-7 flex flex-col gap-[11px]">
+              {pricingFeatures.map((f) => (
+                <li
+                  className="flex gap-[11px] text-[14.5px] text-[rgb(250,250,240)]/90"
+                  key={f}
                 >
-                  Permanen
-                </span>
-                <span className="rounded-full bg-[#ffd53e] px-2 py-0.5 text-[10px] font-bold text-[#00372e]">
-                  BEST VALUE
-                </span>
-              </div>
-            </div>
+                  <span className="font-extrabold text-[#91ffb4]">✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
           </div>
-
-          <div className="mx-auto mt-8 max-w-lg">
-            <div className="relative overflow-hidden rounded-3xl border-2 border-[rgb(0,55,46)] bg-white p-8 shadow-xl md:p-10 transition-all duration-300">
-              {/* Badge */}
-              <div className="absolute right-6 top-6 rounded-full bg-[#ffd53e] px-3 py-1 text-xs font-bold text-[#00372e]">
-                HEMAT {isLifetime ? "80%" : "70%"}
-              </div>
-
-              <h3 className="text-2xl font-bold">
-                Petain Pro {isLifetime ? "Lifetime" : "Basic"}
-              </h3>
-              <div className="mt-3 flex items-baseline gap-3 transition-all duration-300">
-                <span className="text-lg text-[rgb(5,87,72)]/50 line-through">
-                  {isLifetime ? "Rp750.000" : "Rp149.000"}
-                </span>
-                <span className="text-4xl font-bold text-[rgb(0,55,46)]">
-                  {isLifetime ? "Rp150.000" : "Rp45.000"}
-                </span>
-              </div>
-              <p className="mt-1 text-sm font-medium text-[rgb(5,87,72)]">
-                {isLifetime
-                  ? "Bayar sekali, akses selamanya tanpa batas waktu."
-                  : "Akses penuh selama 3 bulan, tanpa perpanjangan otomatis."}
-              </p>
-
-              <div className="mt-6 space-y-2.5">
-                {pricingFeatures.map((f, idx) => (
-                  <div className="flex items-start gap-2.5" key={idx}>
-                    <span className="mt-0.5 text-[rgb(0,55,46)]">✅</span>
-                    <p className="text-sm">{f}</p>
-                  </div>
-                ))}
-              </div>
-
-              <a
-                className="mt-8 flex w-full items-center justify-center rounded-full bg-[rgb(0,55,46)] py-4 text-base font-semibold text-[rgb(250,250,240)] shadow-lg shadow-[rgb(0,55,46)]/20 transition hover:-translate-y-0.5 hover:shadow-xl"
-                href="#"
-              >
-                🚀 Ambil Sekarang — {isLifetime ? "Rp150.000" : "Rp45.000"}
-              </a>
-
-              <p className="mt-4 text-center text-xs text-[rgb(5,87,72)]/60">
-                🔒 Pembayaran aman · QRIS · Transfer Bank · E-Wallet · Garansi 3
-                hari
-              </p>
-            </div>
-          </div>
+          <p className="mt-5 text-center text-[13.5px] text-[#6b7280]">
+            🔒 Pembayaran aman · QRIS · Transfer Bank · E-Wallet · Garansi 3
+            hari
+          </p>
         </div>
       </section>
 
@@ -751,24 +819,22 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ CLOSING CTA ═══════════════ */}
-      <section className="bg-[rgb(0,55,46)] py-16 text-[rgb(250,250,240)] md:py-24">
-        <div className="t22-container-narrow text-center">
-          <h2 className="mx-auto max-w-2xl text-[clamp(1.8rem,4.5vw,3.2rem)] font-bold leading-[1.1] tracking-[-0.03em]">
+      <section className="relative overflow-hidden bg-[#00372E] py-16 text-center text-[rgb(250,250,240)] md:py-24">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_50%_100%,rgba(145,255,180,0.16),transparent_70%)]" />
+        <div className="relative mx-auto max-w-[720px] px-6">
+          <h2 className="text-[clamp(2rem,4.4vw,3.1rem)] font-extrabold leading-[1.1] tracking-[-0.03em] text-[#FAFAF0]">
             Jangan Buka Usaha Cuma Bermodal Feeling.
           </h2>
-          <p className="mx-auto mt-5 max-w-xl text-lg text-[rgb(250,250,240)]/75">
+          <p className="mx-auto mt-5 max-w-[560px] text-lg leading-relaxed text-[rgb(250,250,240)]/80">
             Data kompetitor, kepadatan pasar, dan validasi harga — semua bisa
             kamu punya sebelum ambil keputusan.
           </p>
           <a
-            className="mt-8 inline-flex rounded-full bg-[rgb(250,250,240)] px-8 py-4 text-base font-semibold text-[rgb(0,55,46)] shadow-lg transition hover:-translate-y-0.5"
+            className="mt-8 inline-block rounded-full bg-[#91ffb4] px-8 py-[18px] text-[17px] font-extrabold text-[#00372E] shadow-[0_18px_44px_-14px_rgba(145,255,180,0.5)] transition hover:-translate-y-0.5"
             href="#harga"
           >
             🚀 Mulai Riset dengan Petain — Rp45.000
           </a>
-          <p className="mt-4 text-sm text-[rgb(250,250,240)]/50">
-            Sekali bayar. Tidak ada langganan. Langsung bisa dipakai hari ini.
-          </p>
         </div>
       </section>
 

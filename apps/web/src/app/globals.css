@@ -8,6 +8,11 @@
 @theme {
   --color-brand: #16a34a;
   --color-brand-dark: #15803d;
+  /* Palet Peta Lapangan (DESIGN.md) — aksen resmi permukaan web.
+     --color-brand di atas warisan labs; jangan dipakai di permukaan baru. */
+  --color-mint-sorot: #91ffb4;
+  --color-hijau-sinyal: #01c07a;
+  --color-kuning-penanda: #ffd53e;
 }
 
 @layer utilities {

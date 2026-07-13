@@ -9,7 +9,6 @@ import {
   getDistrictsByRegency,
 } from '@/lib/wilayah';
 import { ScrapeSummary } from './ScrapeSummary';
-import { AgentChatTab } from '@/lib/agentPanel';
 
 /** Base URL of the web dashboard the "Lihat Tabel Data" button opens. */
 const WEB_APP_URL = (import.meta.env.WXT_WEB_URL as string | undefined) ?? 'http://localhost:3000';
@@ -122,7 +121,7 @@ export default function App() {
   const [persistedStatus, setPersistedStatus] = useState<PersistedStatus | null>(null);
   const [summaryRows, setSummaryRows] = useState<PlaceRow[] | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'manual' | 'agent' | 'settings'>('manual');;
+  const [activeTab, setActiveTab] = useState<'manual' | 'settings'>('manual');
 
   useEffect(() => {
     chrome.storage.local.get(STATUS_KEY).then((stored) => {
@@ -356,17 +355,6 @@ export default function App() {
           </button>
           <button
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all duration-200 ease-out active:scale-95 ${
-              activeTab === 'agent'
-                ? 'bg-white text-[#01C07A] shadow-sm ring-1 ring-[#01C07A]/10'
-                : 'text-[rgb(5,87,72)]/60 hover:text-[rgb(0,55,46)]'
-            }`}
-            onClick={() => setActiveTab('agent')}
-          >
-            <span className={activeTab === 'agent' ? 'opacity-100' : 'opacity-70'}>✨</span>
-            Agent
-          </button>
-          <button
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all duration-200 ease-out active:scale-95 ${
               activeTab === 'settings'
                 ? 'bg-white text-[rgb(0,55,46)] shadow-sm ring-1 ring-[rgb(0,55,46)]/5'
                 : 'text-[rgb(5,87,72)]/60 hover:text-[rgb(0,55,46)]'
@@ -545,12 +533,6 @@ export default function App() {
 
           </>
         )}
-        {activeTab === 'agent' && (
-          <div className="flex flex-col flex-1 min-h-0">
-            <AgentChatTab />
-          </div>
-        )}
-
         {/* KONTEN TAB SETTINGS */}
         {activeTab === 'settings' && (
           <div className="flex flex-col flex-1 overflow-y-auto pb-4 space-y-3 rounded-2xl p-4 ">

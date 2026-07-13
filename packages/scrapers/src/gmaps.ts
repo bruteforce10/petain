@@ -45,6 +45,12 @@ export async function searchOnMaps(keyword: string): Promise<void> {
   const input = (await waitForSelector(SEARCH_INPUT, 10_000)) as HTMLInputElement | null;
   if (!input) throw new Error(`Search input ${SEARCH_INPUT} not found on Maps page`);
 
+  // When re-searching from an already-open /maps/place/ page (resumed run),
+  // the old detail panel satisfies the completion checks below before OUR
+  // query was even processed. Completion must correspond to a navigation the
+  // submit triggered, so remember where we started.
+  const startHref = location.href;
+
   // React inputs ignore .value=; use the native setter so the framework sees the change.
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   setter?.call(input, keyword);
@@ -74,15 +80,22 @@ export async function searchOnMaps(keyword: string): Promise<void> {
   // Maps either shows the feed (list of POIs) OR redirects to /maps/place/
   // when the query matches one POI. Both valid. Polling location.pathname
   // catches the single-POI case earliest — URL flips to /maps/place/ before
-  // the detail panel finishes rendering h1.DUwDvf.
+  // the detail panel finishes rendering h1.DUwDvf. The detail/place outcome
+  // additionally requires the URL to have moved off startHref so a leftover
+  // panel from before the submit can't count as completion.
   const start = Date.now();
   while (Date.now() - start < 20_000) {
+    if (document.querySelector(FEED)) return;
     if (
-      document.querySelector(FEED) ||
-      document.querySelector(DETAIL_NAME) ||
-      location.pathname.startsWith('/maps/place/')
+      location.href !== startHref &&
+      (document.querySelector(DETAIL_NAME) || location.pathname.startsWith('/maps/place/'))
     ) return;
     await sleep(250);
+  }
+  // Started on a place page and Maps kept us there: the query resolves to the
+  // POI we are already viewing. Treat as a valid single-place outcome.
+  if (location.pathname.startsWith('/maps/place/') && document.querySelector(DETAIL_NAME)) {
+    return;
   }
   throw new Error(
     `Neither results feed nor place detail appeared after searching "${keyword}". ` +
@@ -120,6 +133,36 @@ function placeFeatureId(href: string | null | undefined): string | null {
   if (!href) return null;
   const tagged = href.match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/i);
   return tagged ? tagged[1].toLowerCase() : null;
+}
+
+const normalizeName = (s: string): string => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * Loose place-name equality between a detail-panel h1 and a list-card title.
+ * Maps renders the same POI with small variations (branch suffix "(Braga)",
+ * casing, spacing), so accept containment either way after normalization.
+ */
+export function namesMatch(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const na = normalizeName(a ?? '');
+  const nb = normalizeName(b ?? '');
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+/** True when the address-bar URL carries the place's tagged CID pair. */
+function urlHasCid(place: Place): boolean {
+  const cid = placeFeatureId(place.maps_url);
+  if (!cid) return false;
+  let href = location.href;
+  try {
+    href = decodeURIComponent(href);
+  } catch {
+    // keep raw href
+  }
+  return href.toLowerCase().includes(cid);
 }
 
 /**
@@ -391,7 +434,12 @@ export async function scrapeGoogleMaps(
  * ------------------------------------------------------------------ */
 
 const DETAIL_NAME = 'h1.DUwDvf';
-const BACK_BTN =
+// Current Maps closes the detail panel with a "Tutup"/"Close" icon button
+// INSIDE the panel's [role="main"] (must be scoped there — the omnibox clear
+// button is also aria-label="Tutup"). The old Kembali/Back/.hYBOP controls no
+// longer exist; kept only as a legacy fallback for older DOM variants.
+const CLOSE_BTN = 'button[aria-label="Tutup"], button[aria-label="Close"]';
+const LEGACY_BACK_BTN =
   'button[aria-label="Kembali"], button[aria-label="Back"], button.hYBOP';
 
 const ariaText = (el: Element | null): string | null =>
@@ -502,6 +550,61 @@ function parseDetail(panel: Element, base: Place): Place {
 }
 
 /**
+ * Wait until the detail panel actually shows the place we just clicked.
+ *
+ * waitForSelector(DETAIL_NAME) is NOT enough here: the previous card's h1 stays
+ * mounted for a beat after the next card is clicked, so an "any h1 exists" wait
+ * resolves instantly with the OLD node. parseDetail then reads the wrong
+ * place, several rows come out byte-identical, and the final dedupe collapses
+ * them — the "20 scraped but only 2 saved" failure. Accept the panel only when
+ * the URL carries the clicked card's CID or the h1 text matches its name; a
+ * mere text change from the pre-click snapshot is the weakest accepted signal
+ * (covers the rare CID-less card). Null on timeout — caller keeps list data.
+ */
+async function waitForDetailPanel(
+  place: Place,
+  prevH1Text: string | null,
+  timeoutMs = 10_000,
+): Promise<HTMLElement | null> {
+  const hasCid = placeFeatureId(place.maps_url) != null;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const h1 = document.querySelector(DETAIL_NAME) as HTMLElement | null;
+    const text = h1?.textContent?.trim() ?? '';
+    if (h1 && text) {
+      if (urlHasCid(place)) return h1;
+      if (namesMatch(text, place.name)) return h1;
+      if (!hasCid && prevH1Text !== null && text !== prevH1Text) return h1;
+    }
+    await sleep(150);
+  }
+  return null;
+}
+
+/**
+ * Close the open place-detail panel (if any) and give the list focus back.
+ * Best-effort: NEVER falls back to history.back() — Maps sometimes services
+ * that with a full document reload, which tears down the content script
+ * mid-scrape and orphans the whole run. An unclosed panel is harmless: the
+ * results feed stays mounted beside it.
+ */
+async function closeDetailPanel(delayMs: number): Promise<boolean> {
+  const h1 = document.querySelector(DETAIL_NAME);
+  if (!h1) return true;
+  const panel = h1.closest('[role="main"]');
+  const btn = (panel?.querySelector(CLOSE_BTN) ??
+    document.querySelector(LEGACY_BACK_BTN)) as HTMLElement | null;
+  if (!btn) return false;
+  btn.click();
+  const deadline = Date.now() + Math.max(1500, delayMs);
+  while (Date.now() < deadline) {
+    if (!document.querySelector(DETAIL_NAME)) return true;
+    await sleep(120);
+  }
+  return !document.querySelector(DETAIL_NAME);
+}
+
+/**
  * Open each result card, scrape its detail panel, merge into the list `Place`.
  * Throttled and capped to avoid rate-limiting. One failing card is skipped,
  * not fatal. Returns places enriched in place (same order).
@@ -532,13 +635,25 @@ export async function scrapeGoogleMapsDeep(
   for (let i = 0; i < n; i++) {
     try {
       // Maps virtualizes the feed, so off-screen cards are often unmounted.
-      // Scroll-locate the exact result before opening its detail panel.
+      // Scroll-locate the exact result before opening its detail panel. The
+      // previous card's panel is deliberately left open: the feed stays
+      // mounted beside it, so the next card is clicked straight from the list
+      // and the panel content swaps in place — no Back navigation at all
+      // (history.back() sometimes full-reloads, killing the content script).
       const feed = document.querySelector(FEED) as HTMLElement | null;
       if (!feed) {
         if (fail()) break;
         continue;
       }
-      const card = await locateCardForPlace(feed, enriched[i], delay);
+      let card = await locateCardForPlace(feed, enriched[i], delay);
+      if (!card) {
+        // Narrow layouts can hide the list while a panel is open — close the
+        // panel and retry the locate once before giving up on this card.
+        // Re-query the feed: closing the panel can re-render the list node.
+        await closeDetailPanel(delay);
+        const freshFeed = document.querySelector(FEED) as HTMLElement | null;
+        if (freshFeed) card = await locateCardForPlace(freshFeed, enriched[i], delay);
+      }
       const click = (card?.querySelector('a[href*="/maps/place"]') ?? card) as HTMLElement | null;
       if (!click) {
         onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
@@ -546,35 +661,31 @@ export async function scrapeGoogleMapsDeep(
         continue;
       }
 
-      // Remember where the card sat. Opening a detail panel can drop the feed
-      // back near the top on Back; restoring this lets the NEXT (lower) card be
-      // found with a short nudge instead of re-sweeping from the top.
-      const savedTop = feed.scrollTop;
-
+      const prevH1Text = document.querySelector(DETAIL_NAME)?.textContent?.trim() ?? null;
       click.click();
-      const h1 = await waitForSelector(DETAIL_NAME);
+      const h1 = await waitForDetailPanel(enriched[i], prevH1Text);
       if (!h1) {
         onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
         if (fail()) break;
         continue;
       }
+      // Fields below the h1 (address, phone, hours) populate over the next
+      // ~1s. Wait, then re-resolve the panel from the LIVE h1 — never from a
+      // node captured around the click, which Maps may since have detached.
       await jitteredSleep(delay);
-
-      const panel = (h1.closest('[role="main"]') ?? document.body) as Element;
+      const h1Live = (document.querySelector(DETAIL_NAME) as HTMLElement | null) ?? h1;
+      if (!namesMatch(h1Live.textContent?.trim(), enriched[i].name) && !urlHasCid(enriched[i])) {
+        // Panel drifted to some other place while settling — keeping the list
+        // row beats writing another place's data into it (identical rows are
+        // exactly what the final dedupe would collapse into a 2-row result).
+        onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
+        if (fail()) break;
+        continue;
+      }
+      const panel = (h1Live.closest('[role="main"]') ?? document.body) as Element;
       enriched[i] = parseDetail(panel, enriched[i]);
       consecutiveFailures = 0;
       onItem?.({ item: toProgressItem(enriched[i]), current: i + 1, total: n });
-
-      const back = document.querySelector(BACK_BTN) as HTMLElement | null;
-      if (back) back.click();
-      else history.back();
-      await jitteredSleep(delay / 2);
-
-      const feedBack = (await waitForSelector(FEED, 6_000)) as HTMLElement | null;
-      if (feedBack && savedTop > 0) {
-        feedBack.scrollTo({ top: savedTop, behavior: 'instant' as ScrollBehavior });
-        await sleep(Math.min(delay, 400));
-      }
 
       // Periodic cooldown: opening hundreds of place panels back-to-back at a
       // steady cadence is the signal most likely to trip Maps' rate-limit /
@@ -589,6 +700,9 @@ export async function scrapeGoogleMapsDeep(
       if (fail()) break;
     }
   }
+
+  // Leave the page parked on the results list rather than a detail panel.
+  await closeDetailPanel(delay);
 
   // Final safety net: the deep pass rewrote name/address with the detail
   // panel's fuller values, which can expose duplicates the list pass missed
