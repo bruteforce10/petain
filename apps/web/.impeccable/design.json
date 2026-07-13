@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-12T05:41:30Z",
+  "title": "Design System: Petain",
+  "extensions": {
+    "colorMeta": {
+      "hijau-rimba": { "role": "primary", "displayName": "Hijau Rimba", "canonical": "#00372E", "tonalRamp": ["#001511", "#00251D", "#00372E", "#0B4A3D", "#1F5F4E", "#3F7D66", "#7FAF97", "#D7EDE2"] },
+      "teal-kedalaman": { "role": "neutral", "displayName": "Teal Kedalaman", "canonical": "#055748", "tonalRamp": ["#02201B", "#033A30", "#055748", "#1F6E5C", "#3F8874", "#6BA593", "#9FC7B9", "#D9EFE7"] },
+      "hijau-sinyal": { "role": "secondary", "displayName": "Hijau Sinyal", "canonical": "#01C07A", "tonalRamp": ["#003B24", "#006241", "#00895A", "#01A56B", "#01C07A", "#3FD79A", "#8AE9C0", "#D2F9E8"] },
+      "mint-sorot": { "role": "secondary", "displayName": "Mint Sorot", "canonical": "#91FFB4", "tonalRamp": ["#0E4B2B", "#1C7A48", "#2FA866", "#57CC86", "#91FFB4", "#B0FFCA", "#CFFFDE", "#EDFFF4"] },
+      "kuning-penanda": { "role": "tertiary", "displayName": "Kuning Penanda", "canonical": "#FFD53E", "tonalRamp": ["#5C4400", "#8A6700", "#B98A00", "#E0AC13", "#FFD53E", "#FFE178", "#FFEEAD", "#FFF8DC"] },
+      "ivory-peta": { "role": "neutral", "displayName": "Ivory Peta", "canonical": "#FAFAF0", "tonalRamp": ["#55554A", "#75756A", "#95958A", "#B5B5AA", "#D5D5C9", "#E8E8DC", "#FAFAF0", "#FEFEFA"] },
+      "abu-lapangan": { "role": "neutral", "displayName": "Abu Lapangan", "canonical": "#EEEEE4", "tonalRamp": ["#4E4E44", "#6E6E64", "#8E8E84", "#AEAEA3", "#CECEC3", "#DEDED3", "#EEEEE4", "#F8F8F2"] },
+      "krem-dasar": { "role": "neutral", "displayName": "Krem Dasar", "canonical": "#FBFAF3", "tonalRamp": ["#565549", "#767568", "#969587", "#B6B5A6", "#D6D5C5", "#E9E8DC", "#FBFAF3", "#FEFDFA"] },
+      "pasir-hangat": { "role": "neutral", "displayName": "Pasir Hangat", "canonical": "#FAECDC", "tonalRamp": ["#5E4526", "#7E5F3C", "#9E7952", "#BE9976", "#DEC2A6", "#EED7C1", "#FAECDC", "#FDF6EE"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Headline hero & section besar; highlight satu frasa dengan Hijau Sinyal." },
+      "headline": { "displayName": "Headline", "purpose": "Judul section fitur/harga." },
+      "title": { "displayName": "Title", "purpose": "Judul kartu fitur & langkah." },
+      "body": { "displayName": "Body", "purpose": "Teks isi — Teal Kedalaman di permukaan terang, maksimal 65–75ch." },
+      "label": { "displayName": "Label", "purpose": "Kicker & label mikro uppercase; maksimal satu kicker per halaman." }
+    },
+    "shadows": [
+      { "name": "artifact-float", "value": "0 24px 50px -28px rgba(0,55,46,0.35)", "purpose": "Satu-satunya bayangan besar yang sah — khusus screenshot produk & kartu harga." },
+      { "name": "press-feedback", "value": "0 4px 12px -4px rgba(0,55,46,0.3)", "purpose": "Respons state kecil (toggle aktif, tombol hover); blur ≤12px." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1) 0.2s", "purpose": "Transisi state default (hover, fokus, toggle)." },
+      { "name": "category-cycle", "value": "0.4s ease (fadeInUp/fadeOutUp 8px)", "purpose": "Pergantian kata pada badge hero." },
+      { "name": "marquee-spring", "value": "framer spring (damping 50, stiffness 400)", "purpose": "Marquee paralaks yang merespons kecepatan scroll." },
+      { "name": "progress-linear", "value": "transform 12s linear", "purpose": "Garis progres tab otomatis." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Tombol Primer",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "CTA utama — pill Hijau Rimba solid, kokoh & meyakinkan.",
+      "html": "<button class=\"ds-btn-primary\">Mulai Riset Sekarang — Rp45.000</button>",
+      "css": ".ds-btn-primary { background: #00372E; color: #FAFAF0; font: 600 14px/1.2 Inter, system-ui, sans-serif; padding: 14px 28px; border: none; border-radius: 9999px; cursor: pointer; transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), opacity 0.2s; } .ds-btn-primary:hover { transform: translateY(-2px); opacity: 0.92; } .ds-btn-primary:focus-visible { outline: 2px solid #01C07A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Tombol Beli",
+      "kind": "button",
+      "refersTo": "button-buy",
+      "description": "CTA transaksi — Mint Sorot, satu per viewport, hanya untuk aksi membeli.",
+      "html": "<button class=\"ds-btn-buy\">Ambil Sekarang — Rp45.000</button>",
+      "css": ".ds-btn-buy { background: #91FFB4; color: #00372E; font: 800 16px/1.2 Inter, system-ui, sans-serif; padding: 16px 32px; border: none; border-radius: 9999px; cursor: pointer; transition: transform 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-buy:hover { transform: translateY(-2px); } .ds-btn-buy:focus-visible { outline: 2px solid #01C07A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Tombol Ghost",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Aksi sekunder — outline tipis, tenang.",
+      "html": "<button class=\"ds-btn-ghost\">Lihat Cara Kerjanya</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #00372E; font: 500 14px/1.2 Inter, system-ui, sans-serif; padding: 14px 20px; border: 1px solid rgba(0,55,46,0.2); border-radius: 9999px; cursor: pointer; transition: background 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-ghost:hover { background: rgba(0,55,46,0.05); } .ds-btn-ghost:focus-visible { outline: 2px solid #01C07A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Chip Ceklis",
+      "kind": "chip",
+      "refersTo": "chip-check",
+      "description": "Penanda bukti/keuntungan — mint dengan ceklis tegas.",
+      "html": "<span class=\"ds-chip-check\"><span class=\"ds-chip-check-mark\">✓</span> Riset sepuasnya — tanpa batas</span>",
+      "css": ".ds-chip-check { display: inline-flex; align-items: center; gap: 10px; background: #91FFB4; color: #00372E; font: 700 15px/1.2 Inter, system-ui, sans-serif; padding: 11px 18px; border-radius: 9999px; } .ds-chip-check-mark { font-weight: 800; }"
+    },
+    {
+      "name": "Badge Nilai",
+      "kind": "chip",
+      "refersTo": "badge-value",
+      "description": "Label mikro bermuatan nilai — kuning penanda, uppercase.",
+      "html": "<span class=\"ds-badge-value\">HEMAT 70%</span>",
+      "css": ".ds-badge-value { display: inline-block; background: #FFD53E; color: #00372E; font: 800 11px/1.2 Inter, system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 12px; border-radius: 9999px; }"
+    },
+    {
+      "name": "Input Teks",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Field standar — kertas ivory berbatas tipis, fokus Hijau Sinyal.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Contoh: laundry di Bekasi Utara\" />",
+      "css": ".ds-input { background: #FAFAF0; color: #00372E; border: 1px solid rgba(0,55,46,0.12); border-radius: 16px; padding: 12px 16px; font: 400 15px/1.4 Inter, system-ui, sans-serif; width: 280px; } .ds-input::placeholder { color: #055748; } .ds-input:focus-visible { outline: 2px solid #01C07A; outline-offset: 1px; border-color: #01C07A; }"
+    },
+    {
+      "name": "Navigasi Landing",
+      "kind": "nav",
+      "refersTo": "nav-landing",
+      "description": "Bar sticky berbatas tipis dengan CTA pill di kanan.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-nav-logo\">Petain</span><a class=\"ds-nav-link\" href=\"#\">Fitur</a><a class=\"ds-nav-link\" href=\"#\">Harga</a><a class=\"ds-nav-link\" href=\"#\">FAQ</a><a class=\"ds-nav-cta\" href=\"#\">Mulai Riset</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 20px; background: rgba(250,250,240,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,55,46,0.08); padding: 14px 24px; font-family: Inter, system-ui, sans-serif; } .ds-nav-logo { font-weight: 800; font-size: 18px; color: #00372E; margin-right: auto; } .ds-nav-link { color: #00372E; font-size: 14px; font-weight: 500; text-decoration: none; transition: opacity 0.2s; } .ds-nav-link:hover { opacity: 0.7; } .ds-nav-cta { background: #00372E; color: #FAFAF0; font-size: 14px; font-weight: 500; text-decoration: none; padding: 10px 20px; border-radius: 9999px; } .ds-nav-cta:focus-visible, .ds-nav-link:focus-visible { outline: 2px solid #01C07A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Bingkai Browser",
+      "kind": "custom",
+      "refersTo": "card-surface",
+      "description": "Signature — screenshot produk dibingkai seperti jendela browser dengan tiga titik.",
+      "html": "<div class=\"ds-card-frame\"><div class=\"ds-card-frame-dots\"><span></span><span></span><span></span></div><div class=\"ds-card-frame-screen\">Screenshot produk asli</div></div>",
+      "css": ".ds-card-frame { background: linear-gradient(150deg, #D9F6E3, #C7EED8); border-radius: 26px; padding: 22px; width: 300px; } .ds-card-frame-dots { display: flex; gap: 7px; padding: 4px 4px 14px; } .ds-card-frame-dots span { width: 11px; height: 11px; border-radius: 9999px; background: rgba(0,55,46,0.18); } .ds-card-frame-screen { background: #FAFAF0; border-radius: 14px; height: 140px; display: grid; place-items: center; color: #055748; font: 500 13px/1.4 Inter, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Kartu Harga",
+      "kind": "card",
+      "refersTo": "card-invert",
+      "description": "Signature — kartu komitmen Hijau Rimba dengan badge nilai dan CTA mint.",
+      "html": "<div class=\"ds-card-price\"><span class=\"ds-card-price-badge\">HEMAT 70%</span><div class=\"ds-card-price-amount\">Rp45.000 <s>Rp149.000</s></div><a class=\"ds-card-price-cta\" href=\"#\">Ambil Sekarang — Rp45.000</a></div>",
+      "css": ".ds-card-price { background: #00372E; color: #FAFAF0; border-radius: 28px; padding: 32px; width: 300px; font-family: Inter, system-ui, sans-serif; } .ds-card-price-badge { display: inline-block; background: #FFD53E; color: #00372E; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; padding: 5px 12px; border-radius: 9999px; } .ds-card-price-amount { margin-top: 16px; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; } .ds-card-price-amount s { font-size: 16px; font-weight: 400; color: rgba(250,250,240,0.5); margin-left: 8px; } .ds-card-price-cta { display: block; margin-top: 24px; background: #91FFB4; color: #00372E; text-align: center; font-size: 16px; font-weight: 800; text-decoration: none; padding: 16px; border-radius: 9999px; transition: transform 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-card-price-cta:hover { transform: translateY(-2px); } .ds-card-price-cta:focus-visible { outline: 2px solid #01C07A; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Peta Presisi",
+    "overview": "Sistem visual Petain meminjam jiwa dari fitur andalannya: polygon kecamatan. Batas selalu tegas, data selalu menempel ke lokasi, tidak ada yang samar. Setiap halaman diperlakukan seperti peta yang digambar analis: hijau rimba sebagai tinta utama di atas kertas ivory, garis-garis tipis sebagai batas wilayah, dan sorotan mint hanya pada titik yang memang perlu ditunjuk. Kepribadiannya profesional, presisi, analitis — pengunjung harus merasa yakin & aman sebelum mengeluarkan Rp45.000. Sistem ini secara eksplisit menolak tiga hal: SaaS startup generik, tool scraper murahan, dan korporat kaku.",
+    "keyCharacteristics": [
+      "Satu keluarga hijau (Rimba → Sinyal → Mint) di atas netral hangat keluarga ivory — tidak ada warna di luar peta ini.",
+      "Tipografi satu keluarga (Inter) dengan kontras bobot ekstrem: 400 untuk isi, 700–800 untuk klaim.",
+      "Kepadatan tenang: satu gagasan dominan per fold, angka spesifik selalu terlihat (6.695 kecamatan, Rp45.000).",
+      "Batas (border 1px) adalah alat struktur utama; bayangan adalah pengecualian yang harus beralasan.",
+      "Bukti produk asli (screenshot dashboard, laporan) adalah imagery utama — bukan ilustrasi abstrak."
+    ],
+    "rules": [
+      { "name": "The Satu Hijau Rule", "body": "Hanya keluarga Rimba–Sinyal–Mint yang boleh tampil di permukaan web. --color-brand #16a34a (warisan labs) dikarantina — jangan dipakai di permukaan baru.", "section": "colors" },
+      { "name": "The Mint Menunjuk Rule", "body": "Mint Sorot hanya pada momen aksi (beli) dan bukti (ceklis, temuan). Kalau mint jadi dekorasi latar, ia berhenti menunjuk.", "section": "colors" },
+      { "name": "The Kertas Ivory Rule", "body": "Background halaman selalu keluarga ivory (#FAFAF0/#FBFAF3), bukan abu-abu netral dingin seperti bg-gray-50.", "section": "colors" },
+      { "name": "The Angka Presisi Rule", "body": "Angka selalu spesifik dan menonjol: 6.695 kecamatan, Rp45.000, 1–2 menit. Angka bulat kosong dilarang.", "section": "typography" },
+      { "name": "The Satu Kicker Rule", "body": "Label uppercase ber-tracking maksimal SATU per halaman sebagai kicker disengaja; eyebrow di setiap section adalah scaffolding AI.", "section": "typography" },
+      { "name": "The Tracking Floor Rule", "body": "Letter-spacing display tidak pernah lebih rapat dari -0.04em; standar sistem -0.03em.", "section": "typography" },
+      { "name": "The Garis Dulu Rule", "body": "Sebelum menambah bayangan, tanya: bisakah border 1px atau pergantian warna permukaan melakukan tugas yang sama? Hampir selalu bisa.", "section": "elevation" },
+      { "name": "The No Ghost-Card Rule", "body": "Border 1px + bayangan lebar pada elemen yang sama dilarang. Pilih satu.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do pakai Hijau Rimba (#00372E) sebagai tinta & permukaan komitmen — halaman harus terasa \"ditandatangani\" warna ini.",
+      "Do tulis body text dengan Teal Kedalaman solid (#055748, ≈8:1) di permukaan terang; di atas Hijau Rimba pakai Ivory Peta minimal alpha 70% untuk ukuran body.",
+      "Do tampilkan bukti produk asli (screenshot dashboard, laporan HTML) dalam Bingkai Browser — imagery utama sistem ini.",
+      "Do pertahankan angka spesifik di headline & badge (6.695, Rp45.000) — The Angka Presisi Rule.",
+      "Do struktur dengan border 1px & lapisan warna dulu; bayangan hanya untuk artefak produk (The Garis Dulu Rule).",
+      "Do hormati prefers-reduced-motion: marquee, cycling badge, dan progress line berhenti; ganti dengan crossfade/statis."
+    ],
+    "donts": [
+      "Don't tampil seperti \"SaaS startup generik\": gradient ungu-biru, jargon Inggris, hero metrics kosong, template landing yang semua orang pakai.",
+      "Don't tampil seperti \"tool scraper murahan\": vibe cepat-kaya, stiker diskon menumpuk, countdown palsu, klaim tanpa bukti.",
+      "Don't tampil seperti \"korporat kaku\": formal dingin ala bank/asuransi; bahasa tetap membumi (\"kamu\").",
+      "Don't pakai --color-brand #16a34a di permukaan web baru — The Satu Hijau Rule.",
+      "Don't pakai bg-gray-50 atau abu netral dingin sebagai latar halaman — keluarga ivory adalah kertasnya.",
+      "Don't taruh eyebrow uppercase di atas setiap section, atau penomoran \"FITUR 01\" sebagai scaffolding.",
+      "Don't tambah emoji baru sebagai ikon fitur/CTA; migrasikan ke ikon garis Lucide.",
+      "Don't pasangkan border 1px + bayangan lebar di elemen yang sama (ghost-card), dan jangan pernah gradient text.",
+      "Don't melebihi radius 28px pada kartu/section, dan jangan gunakan z-index arbitrer."
+    ]
+  }
+}
