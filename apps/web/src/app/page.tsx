@@ -104,18 +104,6 @@ const features: Feature[] = [
       "Masukkan perkiraan biaya produksi + target keuntungan → lihat apakah harga jualmu masih bersaing",
     ],
   },
-  {
-    icon: "🛒",
-    title: "Riset Harga dari Tokopedia",
-    description:
-      "Selain Google Maps, Petain juga bisa kumpulkan data produk dari Tokopedia — berguna kalau kamu jual produk fisik dan mau tahu harga pasar online.",
-    details: [
-      "Harga produk sejenis di pasaran",
-      "Jumlah produk terjual (gambaran permintaan)",
-      "Rating produk dan toko",
-      "Lokasi penjual",
-    ],
-  },
 ];
 
 const comparisonData = [
