@@ -13,6 +13,12 @@
   --color-mint-sorot: #91ffb4;
   --color-hijau-sinyal: #01c07a;
   --color-kuning-penanda: #ffd53e;
+  --color-hijau-rimba: #00372e;
+  --color-teal-kedalaman: #055748;
+  --color-ivory-peta: #fafaf0;
+  --color-krem-dasar: #fbfaf3;
+  --color-abu-lapangan: #eeeee4;
+  --color-pasir-hangat: #faecdc;
 }
 
 @layer utilities {

@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ImageMarquee } from "../components/ParallaxMarquee";
+import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 
 /* ─────────────────────────────────────────
    DATA
@@ -32,6 +33,37 @@ const solutionPoints = [
   "Kisaran harga yang berlaku di pasar",
   "Apakah masih ada celah atau areanya sudah terlalu padat",
 ];
+
+/* Dirender dua kali di section solusi: sebelum kartu gambar (≥md, rata kiri)
+   dan sesudahnya (mobile, terpusat). Hanya satu yang tampil per breakpoint. */
+function SolutionChecklist({
+  align = "center",
+}: {
+  align?: "center" | "left";
+}) {
+  return (
+    <div className="mx-auto max-w-2xl">
+      <p
+        className={`text-base font-extrabold text-center
+        }`}
+      >
+        Kamu jadi tahu:
+      </p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        {solutionPoints.map((p) => (
+          <div className="flex items-start gap-3" key={p}>
+            <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-[#91ffb4] text-[13px] font-extrabold text-[#00372E]">
+              ✓
+            </span>
+            <p className="text-left text-base leading-relaxed text-[#055748]">
+              {p}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 interface Feature {
   icon: string;
@@ -432,51 +464,42 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ SOLUTION ═══════════════ */}
-      <section className="bg-[#FBFAF3] py-16 md:py-24">
-        <div className="t22-container-narrow grid items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
-          <div className="relative order-2 lg:order-1">
-            <div className="pointer-events-none absolute inset-[-5%] bg-[radial-gradient(50%_50%_at_50%_50%,rgba(145,255,180,0.4),transparent_70%)] blur-lg" />
-            <img
-              alt="Petain — solusi riset pasar otomatis"
-              className="relative w-full rounded-[20px] shadow-[0_24px_50px_-28px_rgba(0,55,46,0.35)]"
-              src="/images/petain/solution-map.png"
-            />
-          </div>
-          <div className="order-1 lg:order-2">
-            <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#01C07A]">
-              Solusinya
-            </p>
-            <h2 className="mt-3.5 text-[clamp(1.8rem,3.6vw,2.7rem)] font-extrabold leading-[1.14] tracking-[-0.03em]">
-              Petain Kasih Kamu Gambaran Pasar yang Jelas —{" "}
-              <span className="text-[#01C07A]">Dalam Hitungan Menit.</span>
-            </h2>
-            <p className="mt-5 text-[17px] leading-relaxed text-[#055748]">
-              Masukkan jenis usaha dan area yang kamu incar. Petain langsung
-              kumpulkan data kompetitor di sana, filter supaya hasilnya akurat
-              per kecamatan, dan sajikan dalam laporan yang bisa langsung
-              dibaca.
-            </p>
-            <p className="mb-3.5 mt-6 text-base font-extrabold">
-              Kamu jadi tahu:
-            </p>
-            <div className="flex flex-col gap-3">
-              {solutionPoints.map((p) => (
-                <div className="flex items-start gap-3" key={p}>
-                  <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-[#91ffb4] text-[13px] font-extrabold text-[#00372E]">
-                    ✓
-                  </span>
-                  <p className="text-base leading-relaxed text-[#055748]">
-                    {p}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+      <section id="solusi" className="bg-[#FBFAF3] max-sm:pt-16 pb-16 md:pb-24">
+        <ContainerScroll
+          titleComponent={
+            <>
+              <h2 className="mx-auto max-w-[720px] text-balance text-[clamp(1.9rem,3.8vw,2.8rem)] font-extrabold leading-[1.12] tracking-[-0.03em]">
+                Petain Kasih Kamu Gambaran Pasar yang Jelas —{" "}
+                <span className="text-[#01C07A]">Dalam Hitungan Menit.</span>
+              </h2>
+              <p className="mx-auto mt-5 max-w-[620px] text-base leading-relaxed text-[#055748]">
+                Masukkan jenis usaha dan area yang kamu incar. Petain langsung
+                kumpulkan data kompetitor di sana, filter supaya hasilnya akurat
+                per kecamatan, dan sajikan dalam laporan yang bisa langsung
+                dibaca.
+              </p>
+              <div className="mt-8 hidden md:block">
+                <SolutionChecklist align="left" />
+              </div>
+            </>
+          }
+        >
+          <img
+            alt="Dashboard Petain menampilkan peta kepadatan kompetitor per kecamatan"
+            className="block h-auto w-full"
+            src="/images/petain/solution-map.png"
+            loading="lazy"
+            draggable={false}
+          />
+        </ContainerScroll>
+
+        <div className="t22-container-narrow mt-8 md:hidden">
+          <SolutionChecklist />
         </div>
       </section>
 
       {/* ═══════════════ FEATURES ═══════════════ */}
-      <section id="fitur" className="bg-[#EEEEE4] py-16 md:py-24">
+      <section id="fitur" className="bg-white py-16 md:py-24">
         <div className="t22-container-narrow">
           <div className="mx-auto max-w-[660px] text-center">
             <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#01C07A]">
@@ -599,6 +622,21 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Ringkasan total nilai bonus */}
+          <div className="mx-auto mt-14 max-w-3xl rounded-[28px] bg-[#00372E] px-6 py-10 text-center sm:px-10 md:mt-20 md:py-12">
+            <span className="inline-block rounded-full bg-[#FFD53E] px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#00372E]">
+              Total Nilai Bonus
+            </span>
+            <p className="mt-4 text-balance text-[clamp(2rem,5vw,3.5rem)] font-extrabold leading-[1.1] tracking-[-0.03em] text-[#FAFAF0]">
+              Rp 2.099.000
+            </p>
+            <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-[#FAFAF0]/85">
+              Kamu dapatkan{" "}
+              <span className="font-extrabold text-[#91ffb4]">GRATIS</span>,
+              sudah termasuk dalam satu harga lifetime di bawah ini!
+            </p>
+          </div>
         </div>
       </section>
 
@@ -606,8 +644,7 @@ export default function Home() {
       <section className="bg-[#FBFAF3] py-16 md:py-24">
         <div className="mx-auto w-[min(920px,calc(100%-32px))]">
           <h2 className="text-center text-[clamp(1.8rem,4vw,2.7rem)] font-extrabold leading-[1.1] tracking-[-0.03em]">
-            Riset Manual <span className="text-[#9ca3af]">vs</span> Pakai
-            Petain
+            Riset Manual <span className="text-[#9ca3af]">vs</span> Pakai Petain
           </h2>
 
           <div className="mt-11 overflow-x-auto">
