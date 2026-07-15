@@ -39,10 +39,16 @@ interface AudienceSegment {
 }
 
 const audienceSegments: AudienceSegment[] = [
-  { label: "UMKM", detail: "yang mau buka cabang" },
-  { label: "Calon franchisee", detail: "yang masih milih lokasi" },
-  { label: "Reseller", detail: "yang mau naik kelas jadi brand sendiri" },
-  { label: "Tim startup", detail: "yang butuh validasi cepat" },
+  { label: "UMKM", detail: "Cari peluang usaha yang masih terbuka" },
+  {
+    label: "Calon franchisee",
+    detail: "Identifikasi area dengan peluang terbaik",
+  },
+  {
+    label: "Konsultan & Investor",
+    detail: "Insight AI untuk mendukung pengambilan keputusan",
+  },
+  { label: "Tim startup", detail: "Market research berbasis data" },
 ];
 
 interface AudienceImage {
@@ -51,12 +57,22 @@ interface AudienceImage {
 }
 
 const audienceImages: AudienceImage[] = [
-  { src: "/profesi/1.webp", alt: "Warung & kuliner yang pakai Petain untuk riset lokasi cabang" },
-  { src: "/profesi/4.webp", alt: "Gerai franchise yang divalidasi lewat data pasar Petain" },
-  { src: "/profesi/2.webp", alt: "Usaha laundry yang mengecek kepadatan kompetitor sebelum buka cabang" },
-  { src: "/profesi/5.webp", alt: "Toko kelontong yang mempertimbangkan naik kelas jadi brand sendiri" },
-  { src: "/profesi/3.webp", alt: "Barbershop yang riset harga pasar sebelum menentukan tarif" },
-  { src: "/profesi/6.webp", alt: "Jasa lokal yang memvalidasi peluang area baru" },
+  {
+    src: "/profesi/6.webp",
+    alt: "Jasa lokal yang memvalidasi peluang area baru",
+  },
+  {
+    src: "/profesi/4.webp",
+    alt: "Gerai franchise yang divalidasi lewat data pasar Petain",
+  },
+  {
+    src: "/profesi/2.webp",
+    alt: "Usaha laundry yang mengecek kepadatan kompetitor sebelum buka cabang",
+  },
+  {
+    src: "/profesi/1.webp",
+    alt: "Warung & kuliner yang pakai Petain untuk riset lokasi cabang",
+  },
 ];
 
 /* Dirender dua kali di section solusi: sebelum kartu gambar (≥md, rata kiri)
@@ -394,7 +410,9 @@ export default function Home() {
 
             {/* Body */}
             <p className="mt-5 text-base leading-relaxed text-[rgb(5,87,72)] md:text-lg">
-              Petain membantu kamu menemukan peluang usaha, menganalisis pasar, menghitung estimasi HPP, hingga menyusun strategi bisnis dengan AI—semua dalam satu platform.
+              Petain membantu kamu menemukan peluang usaha, menganalisis pasar,
+              menghitung estimasi HPP, hingga menyusun strategi bisnis dengan
+              AI—semua dalam satu platform.
             </p>
 
             {/* CTAs */}
@@ -427,11 +445,14 @@ export default function Home() {
       </section>
 
       {/* ═══════════════ AUDIENCE ═══════════════ */}
-      <section id="untuk-siapa" className="bg-[#FBFAF3] pb-14 sm:pb-16 md:pb-24 pt-6 sm:pt-8 md:pt-10">
+      <section
+        id="untuk-siapa"
+        className="bg-[#FBFAF3] pb-14 sm:pb-16 md:pb-24 pt-6 sm:pt-8 md:pt-10"
+      >
         <div className="t22-container-narrow">
-          <div className="grid gap-10 md:grid-cols-2 md:items-center md:gap-12 lg:gap-20">
+          <div className="grid gap-10  md:grid-cols-2 md:items-center md:gap-12 lg:gap-20">
             {/* Image grid */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="hidden grid-cols-2 gap-3 sm:gap-4 md:grid md:order-1">
               {audienceImages.map((image) => (
                 <div
                   key={image.src}
@@ -448,10 +469,26 @@ export default function Home() {
             </div>
 
             {/* Content */}
-            <div>
+            <div className="order-1 md:order-2">
               <h2 className="text-balance text-[clamp(1.6rem,3.2vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.03em]">
                 Cocok Buat Kamu yang Lagi Mikirin Langkah Pertama
               </h2>
+
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 md:hidden">
+                {audienceImages.map((image) => (
+                  <div
+                    key={image.src}
+                    className="aspect-[4/3] overflow-hidden rounded-sm bg-[rgb(0,55,46)]/5"
+                  >
+                    <img
+                      alt={image.alt}
+                      className="h-full w-full object-cover object-[35%_center]"
+                      loading="lazy"
+                      src={image.src}
+                    />
+                  </div>
+                ))}
+              </div>
 
               <ul className="mt-8 space-y-4 md:mt-10 md:space-y-5">
                 {audienceSegments.map((segment) => (
@@ -475,7 +512,7 @@ export default function Home() {
                 ))}
               </ul>
 
-              <div className="mt-8 border-t border-[rgb(0,55,46)]/10 pt-8 md:mt-10 md:pt-10">
+              <div className="mt-8 border-t border-[rgb(0,55,46)]/10 pt-8 md:mt-10 md:pt-6">
                 <p className="text-xl font-bold leading-snug sm:text-2xl">
                   Bedanya cuma satu: keputusan kamu didukung{" "}
                   <span className="rounded bg-[#91ffb4] px-2 py-0.5">
@@ -510,7 +547,7 @@ export default function Home() {
 
             <div className="mt-8 space-y-6 text-lg md:text-xl leading-relaxed text-[rgb(0,55,46)]/70 max-w-3xl mx-auto">
               <p>
-                Banyak usaha tutup bukan karena produknya jelek — tapi karena
+                Banyak usaha tutup bukan karena produknya jelek,tapi karena
                 salah baca pasar. Areanya sudah terlalu padat. Harganya tidak
                 kompetitif. Kompetitornya lebih kuat dari yang dikira.
               </p>
@@ -628,11 +665,11 @@ export default function Home() {
                     </ul>
                   )}
                 </div>
-                  <img
-                    alt={f.title}
-                    className={`w-full rounded-[14px]`}
-                    src={f.image}
-                  />
+                <img
+                  alt={f.title}
+                  className={`w-full rounded-[14px]`}
+                  src={f.image}
+                />
               </div>
             );
           })}
