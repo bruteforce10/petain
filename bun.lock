@@ -171,8 +171,8 @@
       },
       "devDependencies": {
         "@types/papaparse": "^5.3.14",
-        "@types/react": "^18.3.3",
-        "react": "^18.3.1",
+        "@types/react": "^19.0.0",
+        "react": "^19.0.0",
         "typescript": "^5.5.3",
       },
       "peerDependencies": {
@@ -2518,6 +2518,10 @@
     "@tailwindcss/postcss/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
 
     "@terramap/labs/@supabase/supabase-js": ["@supabase/supabase-js@2.106.1", "", { "dependencies": { "@supabase/auth-js": "2.106.1", "@supabase/functions-js": "2.106.1", "@supabase/postgrest-js": "2.106.1", "@supabase/realtime-js": "2.106.1", "@supabase/storage-js": "2.106.1" } }, "sha512-gP4HurGkGu7Z3xoOCjtAI17BKKp7jpsmwY0Ssbsks9XQRzJ7ZhK7LxfLdBSYgUdgZCQgjRK+Mr7+cl4Gxrk0Rw=="],
+
+    "@terramap/ui/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+
+    "@terramap/ui/react": ["react@19.2.4", "", {}, "sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ=="],
 
     "@terramap/web/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 

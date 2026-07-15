@@ -89,7 +89,8 @@ export const Header = ({
       }}
       className="mx-auto max-w-5xl text-center"
     >
-      {titleComponent}
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/react 18/19 duplicate across workspaces makes motion.div's children type unresolvable here */}
+      {titleComponent as any}
     </motion.div>
   );
 };

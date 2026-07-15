@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ImageMarquee } from "../components/ParallaxMarquee";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 
 /* ─────────────────────────────────────────
@@ -32,6 +31,32 @@ const solutionPoints = [
   "Jam tersibuk di area tersebut",
   "Kisaran harga yang berlaku di pasar",
   "Apakah masih ada celah atau areanya sudah terlalu padat",
+];
+
+interface AudienceSegment {
+  label: string;
+  detail: string;
+}
+
+const audienceSegments: AudienceSegment[] = [
+  { label: "UMKM", detail: "yang mau buka cabang" },
+  { label: "Calon franchisee", detail: "yang masih milih lokasi" },
+  { label: "Reseller", detail: "yang mau naik kelas jadi brand sendiri" },
+  { label: "Tim startup", detail: "yang butuh validasi cepat" },
+];
+
+interface AudienceImage {
+  src: string;
+  alt: string;
+}
+
+const audienceImages: AudienceImage[] = [
+  { src: "/profesi/1.webp", alt: "Warung & kuliner yang pakai Petain untuk riset lokasi cabang" },
+  { src: "/profesi/4.webp", alt: "Gerai franchise yang divalidasi lewat data pasar Petain" },
+  { src: "/profesi/2.webp", alt: "Usaha laundry yang mengecek kepadatan kompetitor sebelum buka cabang" },
+  { src: "/profesi/5.webp", alt: "Toko kelontong yang mempertimbangkan naik kelas jadi brand sendiri" },
+  { src: "/profesi/3.webp", alt: "Barbershop yang riset harga pasar sebelum menentukan tarif" },
+  { src: "/profesi/6.webp", alt: "Jasa lokal yang memvalidasi peluang area baru" },
 ];
 
 /* Dirender dua kali di section solusi: sebelum kartu gambar (≥md, rata kiri)
@@ -83,7 +108,7 @@ const features: Feature[] = [
     details: [
       "Riset sepuasnya — tidak ada batasan jumlah usaha yang bisa dikumpulkan.",
     ],
-    image: "/images/petain/solution-map.png",
+    image: "/images/petain/riset.png",
   },
   {
     icon: "🎯",
@@ -350,7 +375,7 @@ export default function Home() {
       </nav>
 
       {/* ═══════════════ HERO ═══════════════ */}
-      <section className="pt-16 md:pt-24 bg-gradient-to-b from-gray-50 to-[#f5e9d8]">
+      <section className="pt-16 md:pt-24 pb-16 md:pb-24 bg-gradient-to-b from-gray-50 to-[#FBFAF3]">
         <div className="t22-container-narrow grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           {/* Left — Text */}
           <div>
@@ -369,9 +394,7 @@ export default function Home() {
 
             {/* Body */}
             <p className="mt-5 text-base leading-relaxed text-[rgb(5,87,72)] md:text-lg">
-              Petain bantu kamu riset kompetitor, baca kepadatan pasar, dan
-              validasi peluang usaha di kecamatan yang kamu incar — langsung
-              dari Google Maps, tanpa biaya riset yang mahal.
+              Petain membantu kamu menemukan peluang usaha, menganalisis pasar, menghitung estimasi HPP, hingga menyusun strategi bisnis dengan AI—semua dalam satu platform.
             </p>
 
             {/* CTAs */}
@@ -380,7 +403,7 @@ export default function Home() {
                 className="rounded-full bg-[rgb(0,55,46)] px-7 py-3.5 text-sm font-semibold text-[rgb(250,250,240)] shadow-lg shadow-[rgb(0,55,46)]/20 transition hover:-translate-y-0.5 hover:shadow-xl"
                 href="#harga"
               >
-                🚀 Mulai Riset Sekarang — Rp45.000
+                🚀 Mulai Riset Sekarang
               </a>
               <a
                 className="flex items-center gap-2 rounded-full border border-[rgb(0,55,46)]/20 px-5 py-3.5 text-sm font-medium transition hover:bg-[rgb(0,55,46)]/5"
@@ -401,14 +424,68 @@ export default function Home() {
             />
           </div>
         </div>
+      </section>
 
-        {/* Subheadline */}
-        <div className="mt-24 md:mt-36 text-center  px-4">
-          <p className="font-semibold text-2xl leading-snug sm:leading-relaxed max-w-4xl  mx-auto text-[rgb(5,87,72)]">
-            Cocok untuk pemilik UMKM, calon franchisee, dan siapapun yang mau
-            buka atau kembangkan usaha dengan data, bukan asumsi.
-          </p>
-          <ImageMarquee />
+      {/* ═══════════════ AUDIENCE ═══════════════ */}
+      <section id="untuk-siapa" className="bg-[#FBFAF3] pb-14 sm:pb-16 md:pb-24 pt-6 sm:pt-8 md:pt-10">
+        <div className="t22-container-narrow">
+          <div className="grid gap-10 md:grid-cols-2 md:items-center md:gap-12 lg:gap-20">
+            {/* Image grid */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              {audienceImages.map((image) => (
+                <div
+                  key={image.src}
+                  className="aspect-[4/3] overflow-hidden rounded-sm bg-[rgb(0,55,46)]/5"
+                >
+                  <img
+                    alt={image.alt}
+                    className="h-full w-full object-cover object-[35%_center]"
+                    loading="lazy"
+                    src={image.src}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div>
+              <h2 className="text-balance text-[clamp(1.6rem,3.2vw,2.25rem)] font-extrabold leading-[1.15] tracking-[-0.03em]">
+                Cocok Buat Kamu yang Lagi Mikirin Langkah Pertama
+              </h2>
+
+              <ul className="mt-8 space-y-4 md:mt-10 md:space-y-5">
+                {audienceSegments.map((segment) => (
+                  <li
+                    key={segment.label}
+                    className="flex items-start gap-3 text-lg leading-snug sm:text-xl"
+                  >
+                    <span
+                      className="mt-1 flex-none text-[#01C07A]"
+                      aria-hidden="true"
+                    >
+                      →
+                    </span>
+                    <p>
+                      <span className="font-extrabold">{segment.label}</span>{" "}
+                      <span className="text-[rgb(5,87,72)]">
+                        {segment.detail}
+                      </span>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8 border-t border-[rgb(0,55,46)]/10 pt-8 md:mt-10 md:pt-10">
+                <p className="text-xl font-bold leading-snug sm:text-2xl">
+                  Bedanya cuma satu: keputusan kamu didukung{" "}
+                  <span className="rounded bg-[#91ffb4] px-2 py-0.5">
+                    data, bukan tebakan
+                  </span>
+                  .
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -551,26 +628,11 @@ export default function Home() {
                     </ul>
                   )}
                 </div>
-                <div
-                  className={`rounded-[26px] p-[22px] ${frame.card} ${isImageLeft ? "lg:order-1" : ""}`}
-                >
-                  <div className="flex gap-[7px] px-1 pb-3.5 pt-1">
-                    <span
-                      className={`h-[11px] w-[11px] rounded-full ${frame.dot}`}
-                    />
-                    <span
-                      className={`h-[11px] w-[11px] rounded-full ${frame.dot}`}
-                    />
-                    <span
-                      className={`h-[11px] w-[11px] rounded-full ${frame.dot}`}
-                    />
-                  </div>
                   <img
                     alt={f.title}
-                    className={`w-full rounded-[14px] ${frame.img}`}
+                    className={`w-full rounded-[14px]`}
                     src={f.image}
                   />
-                </div>
               </div>
             );
           })}
