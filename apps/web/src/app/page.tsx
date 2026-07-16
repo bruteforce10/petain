@@ -25,12 +25,27 @@ const problems = [
   "Akhirnya keputusan tetap pakai feeling",
 ];
 
-const solutionPoints = [
-  "Sudah berapa banyak usaha sejenis di area itu",
-  "Mana yang kuat, mana yang lemah",
-  "Jam tersibuk di area tersebut",
-  "Kisaran harga yang berlaku di pasar",
-  "Apakah masih ada celah atau areanya sudah terlalu padat",
+const workspaceStages = [
+  {
+    title: "Cari peluang usaha",
+    detail:
+      "Lihat area yang masih punya celah dan mana yang sudah terlalu padat, presisi per kecamatan.",
+  },
+  {
+    title: "Pahami kondisi pasar",
+    detail:
+      "Berapa banyak usaha sejenis di sana, mana yang kuat, jam tersibuknya, sampai kisaran harga yang berlaku.",
+  },
+  {
+    title: "Hitung estimasi biaya",
+    detail:
+      "Kalkulator HPP menghitung modal dan harga jual sebelum kamu keluar uang.",
+  },
+  {
+    title: "Susun strategi bisnis",
+    detail:
+      "Agent AI bantu meracik strategi harga dan posisi dari data yang barusan kamu kumpulkan.",
+  },
 ];
 
 interface AudienceSegment {
@@ -77,32 +92,26 @@ const audienceImages: AudienceImage[] = [
 
 /* Dirender dua kali di section solusi: sebelum kartu gambar (≥md, rata kiri)
    dan sesudahnya (mobile, terpusat). Hanya satu yang tampil per breakpoint. */
-function SolutionChecklist({
-  align = "center",
-}: {
-  align?: "center" | "left";
-}) {
+function WorkspaceStages() {
   return (
-    <div className="mx-auto max-w-2xl">
-      <p
-        className={`text-base font-extrabold text-center
-        }`}
-      >
-        Kamu jadi tahu:
-      </p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        {solutionPoints.map((p) => (
-          <div className="flex items-start gap-3" key={p}>
-            <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-[#91ffb4] text-[13px] font-extrabold text-[#00372E]">
-              ✓
+    <ol className="grid gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">
+      {workspaceStages.map((stage, i) => (
+        <li key={stage.title}>
+          <div className="flex items-center gap-3">
+            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-[#00372E] text-[13px] font-extrabold text-[#91ffb4]">
+              {i + 1}
             </span>
-            <p className="text-left text-base leading-relaxed text-[#055748]">
-              {p}
-            </p>
+            <span aria-hidden className="h-px flex-1 bg-[rgba(0,55,46,0.14)]" />
           </div>
-        ))}
-      </div>
-    </div>
+          <h3 className="mt-4 text-[17px] font-extrabold leading-[1.25] tracking-[-0.02em] text-[#00372E]">
+            {stage.title}
+          </h3>
+          <p className="mt-2 text-pretty text-[15px] leading-relaxed text-[#055748]">
+            {stage.detail}
+          </p>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -570,19 +579,19 @@ export default function Home() {
         <ContainerScroll
           titleComponent={
             <>
-              <h2 className="mx-auto max-w-[720px] text-balance text-[clamp(1.9rem,3.8vw,2.8rem)] font-extrabold leading-[1.12] tracking-[-0.03em]">
-                Petain Kasih Kamu Gambaran Pasar yang Jelas —{" "}
-                <span className="text-[#01C07A]">Dalam Hitungan Menit.</span>
+              <h2 className="mx-auto max-w-[760px] text-balance text-[clamp(1.9rem,3.8vw,2.8rem)] font-extrabold leading-[1.12] tracking-[-0.03em] text-[#00372E]">
+                Semua yang Kamu Butuhkan
+                <br className="hidden sm:inline" /> untuk Memulai Bisnis.
               </h2>
-              <p className="mx-auto mt-5 max-w-[620px] text-base leading-relaxed text-[#055748]">
-                Masukkan jenis usaha dan area yang kamu incar. Petain langsung
-                kumpulkan data kompetitor di sana, filter supaya hasilnya akurat
-                per kecamatan, dan sajikan dalam laporan yang bisa langsung
-                dibaca.
+              <p className="mx-auto mt-5 max-w-[620px] text-pretty text-base leading-relaxed text-[#055748]">
+                Mulai dari mencari peluang usaha, memahami kondisi pasar,
+                menghitung estimasi biaya, hingga menyusun strategi bisnis.
+                Semua tersedia dalam{" "}
+                <strong className="font-bold text-[#00372E]">
+                  satu AI Workspace
+                </strong>
+                .
               </p>
-              <div className="mt-8 hidden md:block">
-                <SolutionChecklist align="left" />
-              </div>
             </>
           }
         >
@@ -595,8 +604,8 @@ export default function Home() {
           />
         </ContainerScroll>
 
-        <div className="t22-container-narrow mt-8 md:hidden">
-          <SolutionChecklist />
+        <div className="t22-container-narrow mt-14 md:mt-16">
+          <WorkspaceStages />
         </div>
       </section>
 
