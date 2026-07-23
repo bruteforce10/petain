@@ -420,8 +420,8 @@ export default function Home() {
             {/* Body */}
             <p className="mt-5 text-base leading-relaxed text-[rgb(5,87,72)] md:text-lg">
               Petain membantu kamu menemukan peluang usaha, menganalisis pasar,
-              menghitung estimasi HPP, hingga menyusun strategi bisnis dengan
-              AI—semua dalam satu platform.
+              menghitung estimasi HPP, hingga menyusun strategi bisnis dengan AI
+              Business Copilot dalam satu platform.
             </p>
 
             {/* CTAs */}
@@ -446,7 +446,7 @@ export default function Home() {
           <div className="overflow-hidden ">
             <img
               alt="Petain Dashboard — Riset bisnis lokal, analisa kompetitor, peluang pasar"
-              className="w-full"
+              className="w-full rounded-sm"
               src="/hiro.webp"
             />
           </div>
